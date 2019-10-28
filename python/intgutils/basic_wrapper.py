@@ -23,11 +23,10 @@ from collections import OrderedDict
 
 import intgutils.intgdefs as intgdefs
 import intgutils.intgmisc as intgmisc
+from intgutils.wcl import WCL
 import intgutils.replace_funcs as replfuncs
 import despymisc.miscutils as miscutils
 import despymisc.provdefs as provdefs
-
-from intgutils.wcl import WCL
 
 
 WRAPPER_OUTPUT_PREFIX = 'WRAP: '
@@ -280,7 +279,7 @@ class BasicWrapper(object):
                                     outdir = os.path.dirname(fname)
                                     miscutils.coremakedirs(outdir)
                 elif sectkeys[0] == intgdefs.IW_LIST_SECT:
-                    (_, listsect, filesect) = sect.split('.')
+                    (_, _, filesect) = sect.split('.')
 
                     ldict = self.inputwcl[intgdefs.IW_LIST_SECT][sectkeys[1]]
 
@@ -368,14 +367,13 @@ class BasicWrapper(object):
         self.start_exec_task('check_inputs')
 
         existfiles = {}
-        missingfiles = []
 
         ins, _ = intgmisc.get_fullnames(self.inputwcl, self.inputwcl, ekey)
         for sect in ins:
             exists, missing = intgmisc.check_files(ins[sect])
             existfiles[sect] = exists
 
-            if len(missing) != 0:
+            if missing:
                 for mfile in missing:
                     miscutils.fwdebug_print("ERROR: input '%s' does not exist." % mfile,
                                             WRAPPER_OUTPUT_PREFIX)
@@ -386,63 +384,6 @@ class BasicWrapper(object):
 
         self.end_exec_task(0)
         return existfiles
-
-
-    ######################################################################
-    #def check_output_list(self, sect):
-    #    """ Check that the output files described by a list file exist """
-    #
-    #    if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
-    #        miscutils.fwdebug_print("INFO: Beg sect=%s" % sect, WRAPPER_OUTPUT_PREFIX)
-    #
-    #   _, existfiles, missingfiles = intgmisc.check_list(sect,
-    #                                                     self.inputwcl[intgdefs.IW_LIST_SECT],
-    #                                                     self.inputwcl[intgdefs.IW_FILE_SECT])
-    #
-    #   if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
-    #       miscutils.fwdebug_print("INFO: existfiles=%s" % existfiles, WRAPPER_OUTPUT_PREFIX)
-    #       miscutils.fwdebug_print("INFO: missingfiles=%s" % missingfiles, WRAPPER_OUTPUT_PREFIX)
-    #   if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
-    #       miscutils.fwdebug_print("INFO: end", WRAPPER_OUTPUT_PREFIX)
-    #
-    #   return (existfiles, missingfiles)
-
-
-    ######################################################################
-#    def check_output_files(self, sect):
-#        """ Check that the files for a single output file section exist """
-#
-#        sectkeys = sect.split('.')
-#        sectname = sectkeys[1]
-#
-#        if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
-#            miscutils.fwdebug_print("INFO: Beg sectname=%s" % sectname, WRAPPER_OUTPUT_PREFIX)
-#        existfiles = []
-#        missingfiles = []
-#
-#        if sectname in self.inputwcl[intgdefs.IW_FILE_SECT]:
-#            if 'fullname' in self.inputwcl[intgdefs.IW_FILE_SECT][sectname]:
-#                fnames = replfuncs.replace_vars(self.inputwcl[intgdefs.IW_FILE_SECT][sectname]['fullname'], self.inputwcl)[0]
-#                #fnames = miscutils.fwsplit(self.inputwcl[intgdefs.IW_FILE_SECT][sectname]['fullname'], ',')
-#                fnames = miscutils.fwsplit(fnames, ',')
-#                if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
-#                    miscutils.fwdebug_print("INFO: fullname = %s" % fnames, WRAPPER_OUTPUT_PREFIX)
-#                for filen in fnames:
-#                    if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
-#                        miscutils.fwdebug_print("\tINFO: Checking existence of file '%s'" % filen,
-#                                                WRAPPER_OUTPUT_PREFIX)
-#                    if os.path.exists(filen) and os.path.getsize(filen) > 0:
-#                        existfiles.append(filen)
-#                    else:
-#                        missingfiles.append(filen)
-#
-#        if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
-#            miscutils.fwdebug_print("INFO: existfiles=%s" % existfiles, WRAPPER_OUTPUT_PREFIX)
-#            miscutils.fwdebug_print("INFO: missingfiles=%s" % missingfiles, WRAPPER_OUTPUT_PREFIX)
-#        if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
-#            miscutils.fwdebug_print("INFO: end", WRAPPER_OUTPUT_PREFIX)
-#
-#        return (existfiles, missingfiles)
 
 
     ######################################################################
@@ -481,7 +422,7 @@ class BasicWrapper(object):
 
             exists, missing = intgmisc.check_files(outs[sect])
             existfiles.update({sect:exists})
-            if len(missing) > 0:
+            if missing:
                 optout = self.get_optout(sect)
                 if optout:
                     if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
@@ -504,7 +445,7 @@ class BasicWrapper(object):
         if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
             miscutils.fwdebug_print("INFO: end", WRAPPER_OUTPUT_PREFIX)
 
-        if len(missingfiles) > 0:
+        if missingfiles:
             status = 1
         else:
             status = 0
@@ -529,6 +470,7 @@ class BasicWrapper(object):
     ######################################################################
     def save_provenance(self, execsect, exwcl, infiles, outfiles, exitcode):
         """ Create provenance wcl """
+        #pylint: disable=unbalanced-tuple-unpacking
         self.start_exec_task('save_provenance')
 
         if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
@@ -558,7 +500,7 @@ class BasicWrapper(object):
 
         # used
         new_infiles = {}
-        if len(infiles) > 0:
+        if infiles:
             all_infiles = []
             for key, sublist in infiles.items():
                 new_infiles[key] = []
@@ -600,7 +542,7 @@ class BasicWrapper(object):
 
                 if child_sect not in new_outfiles or \
                         new_outfiles[child_sect] is None or \
-                        len(new_outfiles[child_sect]) == 0:
+                        not new_outfiles[child_sect]:
                     if optout:
                         if miscutils.fwdebug_check(6, 'BASICWRAP_DEBUG'):
                             miscutils.fwdebug_print("INFO: skipping missing optional output %s:%s" % (parent_sect, child_sect),
@@ -651,7 +593,7 @@ class BasicWrapper(object):
                 if miscutils.fwdebug_check(6, 'BASICWRAP_DEBUG'):
                     miscutils.fwdebug_print("INFO: after wdf = %s" % prov[provdefs.PROV_WDF],
                                             WRAPPER_OUTPUT_PREFIX)
-            if len(wdf) == 0:
+            if not wdf:
                 del prov[provdefs.PROV_WDF]
 
         if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
@@ -723,7 +665,7 @@ class BasicWrapper(object):
                                     (self.outputwcl[intgdefs.OW_OUTPUTS_BY_SECT]),
                                     WRAPPER_OUTPUT_PREFIX)
         for exlabel, exlist in outexist.items():
-            if len(exlist) != 0:
+            if exlist:
                 if exlabel not in self.outputwcl[intgdefs.OW_OUTPUTS_BY_SECT]:
                     self.outputwcl[intgdefs.OW_OUTPUTS_BY_SECT][exlabel] = {}
                 if ekey not in self.outputwcl[intgdefs.OW_OUTPUTS_BY_SECT][exlabel]:
@@ -806,4 +748,4 @@ class BasicWrapper(object):
                 self.outputwcl[intgdefs.OW_OUTPUTS_BY_SECT][fsname][exname] = provdefs.PROV_DELIM.join(exlist)
         self.outputwcl['wrapper']['end_time'] = time.time()
 
-        miscutils.fwdebug_print("INFO: end - exit status = %s" % self.get_status() , WRAPPER_OUTPUT_PREFIX)
+        miscutils.fwdebug_print("INFO: end - exit status = %s" % self.get_status(), WRAPPER_OUTPUT_PREFIX)

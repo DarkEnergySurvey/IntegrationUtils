@@ -25,7 +25,7 @@ def make_where_clause(dbh, key, value):
         value = value.replace(' ', '').split(',')
 
     condition = ""
-    if type(value) is list:  # multiple values
+    if isinstance(value, list):  # multiple values
         extra = []
         ins = []
         nots = []
@@ -37,18 +37,18 @@ def make_where_clause(dbh, key, value):
             else:
                 ins.append(dbh.quote(val))
 
-        if len(ins) > 0:
+        if ins:
             condition += "%s IN (%s)" % (key, ','.join(ins))
-            if len(extra) > 0:
+            if extra:
                 condition += ' OR '
 
-        if len(extra) > 0:
+        if extra:
             condition += ' OR '.join(extra)
 
         if ' OR ' in condition:
             condition = '(%s)' % condition
 
-        if len(nots) > 0:
+        if nots:
             condition += ' AND '.join(nots)
 
     elif '*' in value or '^' in value or '$' in value or \
@@ -92,7 +92,7 @@ def create_query_string(dbh, qdict):
         fromtables.append(tablename)
         if 'select_fields' in tabledict:
             table_select_fields = tabledict['select_fields']
-            if type(table_select_fields) is not list:
+            if not isinstance(table_select_fields, list):
                 table_select_fields = table_select_fields.lower().replace(' ', '').split(',')
 
             if 'all' in table_select_fields:
@@ -176,10 +176,10 @@ def convert_single_files_to_lines(filelist, initcnt=1):
     count = initcnt
     linedict = {'list': {}}
 
-    if type(filelist) is dict and len(filelist) > 1 and \
+    if isinstance(filelist, dict) and len(filelist) > 1 and \
             'filename' not in filelist.keys():
         filelist = filelist.values()
-    elif type(filelist) is dict:  # single file
+    elif isinstance(filelist, dict):  # single file
         filelist = [filelist]
 
     linedict = {'list': {intgdefs.LISTENTRY: {}}}
@@ -202,8 +202,8 @@ def convert_multiple_files_to_lines(filelist, filelabels, initcnt=1):
         lname = "line%05d" % (lcnt)
         fsect = {}
         assert len(filelabels) == len(oneline)
-        for fcnt in range(0, len(filelabels)):
-            fsect[filelabels[fcnt]] = oneline[fcnt]
+        for fcnt, lab in enumerate(filelabels):
+            fsect[lab] = oneline[fcnt]
         lines['list'][intgdefs.LISTENTRY][lname] = {'file': fsect}
         lcnt += 1
     return lines

@@ -191,11 +191,11 @@ class WCL(OrderedDict):
             miscutils.fwdebug_print("BEG")
         usedvars = {}
         for key, val in wcl.items():
-            if type(val) is dict or type(val) is OrderedDict:
+            if isinstance(val, (dict, OrderedDict)):
                 uvars = cls.search_wcl_for_variables(val)
                 if uvars is not None:
                     usedvars.update(uvars)
-            elif type(val) is str:
+            elif isinstance(val, str):
                 viter = [m.group(1) for m in re.finditer(r'(?i)\$\{([^}]+)\}', val)]
                 for vstr in viter:
                     if ':' in vstr:
@@ -227,7 +227,7 @@ class WCL(OrderedDict):
 
     def _recurs_write_wcl(self, wcl_dict, out_file, sortit, inc_indent, curr_indent):
         """Internal recursive function to do actual WCL writing"""
-        if len(wcl_dict) > 0:
+        if wcl_dict:
             if sortit:
                 dictitems = sorted(wcl_dict.items())
             else:
@@ -260,7 +260,7 @@ class WCL(OrderedDict):
         while line:
             line = line.strip()
             while line.endswith('\\'):
-                linecnt +=1
+                linecnt += 1
                 line = line[:-1] + in_file.readline().strip()
 
             # delete comments
@@ -290,7 +290,7 @@ class WCL(OrderedDict):
                 if patmatch is not None:
                     if miscutils.fwdebug_check(9, "WCL_DEBUG"):
                         miscutils.fwdebug_print("patmatch=%s" % patmatch.group(0))
-                    funcmatch = re.match('([^(]+)\(([^)]+)\)', patmatch.group(1))
+                    funcmatch = re.match(r'([^(]+)\(([^)]+)\)', patmatch.group(1))
                     if funcmatch:
                         if miscutils.fwdebug_check(9, "WCL_DEBUG"):
                             miscutils.fwdebug_print("funcmatch keys=%s" % funcmatch.group(2))
