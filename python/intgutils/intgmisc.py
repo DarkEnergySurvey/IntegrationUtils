@@ -47,7 +47,7 @@ def get_cmd_hyphen(hyphen_type, cmd_option):
         else:
             hyphen = '--'
     else:
-        raise ValueError('Invalid cmd hyphen type (%s)' % hyphen_type)
+        raise ValueError(f'Invalid cmd hyphen type ({hyphen_type})')
 
     return hyphen
 
@@ -57,11 +57,11 @@ def get_exec_sections(wcl, prefix):
     execs = {}
     for key, val in wcl.items():
         if miscutils.fwdebug_check(3, "DEBUG"):
-            miscutils.fwdebug_print("\tsearching for exec prefix in %s" % key)
+            miscutils.fwdebug_print(f"\tsearching for exec prefix in {key}")
 
         if re.search(r"^%s\d+$" % prefix, key):
             if miscutils.fwdebug_check(4, "DEBUG"):
-                miscutils.fwdebug_print("\tFound exec prefex %s" % key)
+                miscutils.fwdebug_print(f"\tFound exec prefex {key}")
             execs[key] = val
     return execs
 
@@ -77,7 +77,7 @@ def run_exec(cmd):
     retcode = None
     procinfo = None
 
-    subp = subprocess4.Popen(shlex.split(cmd), shell=False)
+    subp = subprocess4.Popen(shlex.split(cmd), shell=False, text=True)
     retcode = subp.wait4()
     procinfo = dict((field, getattr(subp.rusage, field)) for field in procfields)
 
@@ -95,7 +95,7 @@ def remove_column_format(columns):
             if rmatch:
                 columns2.append(rmatch.group(2).strip())
             else:
-                miscutils.fwdie("Error: invalid FMT column: %s" % (col), 1)
+                miscutils.fwdie(f"Error: invalid FMT column: {col}", 1)
         else:
             columns2.append(col)
     return columns2
@@ -116,12 +116,12 @@ def read_fullnames_from_listfile(listfile, linefmt, colstr):
     """ Read a list file returning fullnames from the list """
 
     if miscutils.fwdebug_check(3, 'INTGMISC_DEBUG'):
-        miscutils.fwdebug_print('colstr=%s' % colstr)
+        miscutils.fwdebug_print(f'colstr={colstr}')
 
     columns = convert_col_string_to_list(colstr, False)
 
     if miscutils.fwdebug_check(3, 'INTGMISC_DEBUG'):
-        miscutils.fwdebug_print('columns=%s' % columns)
+        miscutils.fwdebug_print(f'columns={columns}')
 
     fullnames = {}
     pos2fsect = {}
@@ -134,10 +134,10 @@ def read_fullnames_from_listfile(listfile, linefmt, colstr):
         # else a data column instead of a filename
 
     if miscutils.fwdebug_check(3, 'INTGMISC_DEBUG'):
-        miscutils.fwdebug_print('pos2fsect=%s' % pos2fsect)
+        miscutils.fwdebug_print(f'pos2fsect={pos2fsect}')
 
-    if linefmt == 'config' or linefmt == 'wcl':
-        miscutils.fwdie('Error:  wcl list format not currently supported (%s)' % listfile, 1)
+    if linefmt in ['config', 'wcl']:
+        miscutils.fwdie(f'Error:  wcl list format not currently supported ({listfile})', 1)
     else:
         with open(listfile, 'r') as listfh:
             for line in listfh:
@@ -152,7 +152,7 @@ def read_fullnames_from_listfile(listfile, linefmt, colstr):
                 elif linefmt == 'textsp':
                     lineinfo = miscutils.fwsplit(line, ' ')
                 else:
-                    miscutils.fwdie('Error:  unknown linefmt (%s)' % linefmt, 1)
+                    miscutils.fwdie(f'Error:  unknown linefmt ({linefmt})', 1)
 
                 # save each fullname in line
                 for pos in pos2fsect:
@@ -161,13 +161,13 @@ def read_fullnames_from_listfile(listfile, linefmt, colstr):
                                 miscutils.CU_PARSE_COMPRESSION
                     (path, filename, compression) = miscutils.parse_fullname(lineinfo[pos],
                                                                              parsemask)
-                    fname = "%s/%s" % (path, filename)
+                    fname = f"{path}/{filename}"
                     if compression is not None:
                         fname += compression
                     fullnames[pos2fsect[pos]].append(fname)
 
     if miscutils.fwdebug_check(6, 'INTGMISC_DEBUG'):
-        miscutils.fwdebug_print('fullnames = %s' % fullnames)
+        miscutils.fwdebug_print(f'fullnames = {fullnames}')
     return fullnames
 
 
@@ -181,11 +181,11 @@ def get_list_fullnames(sect, modwcl):
     # check list itself exists
     listname = ldict['fullname']
     if miscutils.fwdebug_check(3, 'INTGMISC_DEBUG'):
-        miscutils.fwdebug_print("\tINFO: Checking existence of '%s'" % listname)
+        miscutils.fwdebug_print(f"\tINFO: Checking existence of '{listname}'")
 
     if not os.path.exists(listname):
-        miscutils.fwdebug_print("\tError: input list '%s' does not exist." % listname)
-        raise IOError("List not found: %s does not exist" % listname)
+        miscutils.fwdebug_print(f"\tError: input list '{listname}' does not exist.")
+        raise IOError(f"List not found: {listname} does not exist")
 
     # get list format: space separated, csv, wcl, etc
     listfmt = intgdefs.DEFAULT_LIST_FORMAT
@@ -197,13 +197,13 @@ def get_list_fullnames(sect, modwcl):
     # read fullnames from list file
     fullnames = read_fullnames_from_listfile(listname, listfmt, ldict['columns'])
     if miscutils.fwdebug_check(3, 'INTGMISC_DEBUG'):
-        miscutils.fwdebug_print("\tINFO: fullnames=%s" % fullnames)
+        miscutils.fwdebug_print(f"\tINFO: fullnames={fullnames}")
 
     if filesect not in fullnames:
         columns = convert_col_string_to_list(ldict['columns'], False)
 
         if miscutils.fwdebug_check(3, 'INTGMISC_DEBUG'):
-            miscutils.fwdebug_print('columns=%s' % columns)
+            miscutils.fwdebug_print('columns={columns}')
 
         hasfullname = False
         for col in columns:
@@ -211,11 +211,11 @@ def get_list_fullnames(sect, modwcl):
             if lcol.endswith('.fullname') and lcol.startswith(filesect):
                 hasfullname = True
         if hasfullname:
-            miscutils.fwdebug_print("ERROR: Could not find sect %s in list" % (filesect))
-            miscutils.fwdebug_print("\tcolumns = %s" % (columns))
-            miscutils.fwdebug_print("\tlist keys = %s" % (fullnames.keys()))
+            miscutils.fwdebug_print(f"ERROR: Could not find sect {filesect} in list")
+            miscutils.fwdebug_print(f"\tcolumns = {columns}")
+            miscutils.fwdebug_print(f"\tlist keys = {list(fullnames.keys())}")
         elif miscutils.fwdebug_check(3, 'INTGMISC_DEBUG'):
-            miscutils.fwdebug_print("WARN: Could not find sect %s in fullname list.   Not a problem if list (sect) has only data." % (filesect))
+            miscutils.fwdebug_print(f"WARN: Could not find sect {filesect} in fullname list.   Not a problem if list (sect) has only data.")
     else:
         setfnames = set(fullnames[filesect])
     return listname, setfnames
@@ -228,7 +228,7 @@ def get_file_fullnames(sect, filewcl, fullwcl):
     sectname = sectkeys[1]
 
     if miscutils.fwdebug_check(3, 'INTGMISC_DEBUG'):
-        miscutils.fwdebug_print("INFO: Beg sectname=%s" % sectname)
+        miscutils.fwdebug_print(f"INFO: Beg sectname={sectname}")
 
     fnames = []
     if sectname in filewcl:
@@ -237,7 +237,7 @@ def get_file_fullnames(sect, filewcl, fullwcl):
             fnames = replfuncs.replace_vars(filesect['fullname'], fullwcl)[0]
             fnames = miscutils.fwsplit(fnames, ',')
             if miscutils.fwdebug_check(3, 'INTGMISC_DEBUG'):
-                miscutils.fwdebug_print("INFO: fullname = %s" % fnames)
+                miscutils.fwdebug_print(f"INFO: fullname = {fnames}")
 
     return set(fnames)
 
@@ -252,15 +252,13 @@ def get_fullnames(modwcl, fullwcl, exsect=None):
         exec_sectnames = get_exec_sections(modwcl, intgdefs.IW_EXEC_PREFIX)
     else:
         exec_sectnames = [exsect]
-
     # intermediate files (output of 1 exec, but input for another exec
     # within same wrapper) are listed only with output files
 
     # get output file names first so can exclude intermediate files from inputs
     outputs = {}
     allouts = set()
-    exec_sectnames.sort()
-    for _exsect in exec_sectnames:
+    for _exsect in sorted(exec_sectnames):
         exwcl = modwcl[_exsect]
         if intgdefs.IW_OUTPUTS in exwcl:
             for sect in miscutils.fwsplit(exwcl[intgdefs.IW_OUTPUTS], ','):
@@ -271,10 +269,10 @@ def get_fullnames(modwcl, fullwcl, exsect=None):
                 elif sectkeys[0] == intgdefs.IW_LIST_SECT:
                     _, outset = get_list_fullnames(sect, modwcl)
                 else:
-                    print "exwcl[intgdefs.IW_OUTPUTS]=", exwcl[intgdefs.IW_OUTPUTS]
-                    print "sect = ", sect
-                    print "sectkeys = ", sectkeys
-                    raise KeyError("Unknown data section %s" % sectkeys[0])
+                    print("exwcl[intgdefs.IW_OUTPUTS]=", exwcl[intgdefs.IW_OUTPUTS])
+                    print("sect = ", sect)
+                    print("sectkeys = ", sectkeys)
+                    raise KeyError(f"Unknown data section {sectkeys[0]}")
                 outputs[sect] = outset
                 allouts.union(outset)
 
@@ -291,10 +289,10 @@ def get_fullnames(modwcl, fullwcl, exsect=None):
                     _, inset = get_list_fullnames(sect, modwcl)
                     #inset.add(listname)
                 else:
-                    print "exwcl[intgdefs.IW_INPUTS]=", exwcl[intgdefs.IW_INPUTS]
-                    print "sect = ", sect
-                    print "sectkeys = ", sectkeys
-                    raise KeyError("Unknown data section %s" % sectkeys[0])
+                    print("exwcl[intgdefs.IW_INPUTS]=", exwcl[intgdefs.IW_INPUTS])
+                    print("sect = ", sect)
+                    print("sectkeys = ", sectkeys)
+                    raise KeyError(f"Unknown data section {sectkeys[0]}")
 
                 # exclude intermediate files from inputs
                 if inset is not None:

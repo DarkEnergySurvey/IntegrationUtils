@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # $Id: queryutils.py 41598 2016-04-05 20:26:20Z mgower $
 # $Rev:: 41598                            $:  # Revision of last commit.
 # $LastChangedBy:: mgower                 $:  # Author of last commit.
@@ -18,8 +17,8 @@ def make_where_clause(dbh, key, value):
     """ return properly formatted string for a where clause """
 
     if miscutils.fwdebug_check(1, 'PFWFILELIST_DEBUG'):
-        miscutils.fwdebug_print("key = %s" % (key))
-        miscutils.fwdebug_print("value = %s" % str(value))
+        miscutils.fwdebug_print(f"key = {key}")
+        miscutils.fwdebug_print(f"value = {str(value)}")
 
     if ',' in value:
         value = value.replace(' ', '').split(',')
@@ -38,7 +37,7 @@ def make_where_clause(dbh, key, value):
                 ins.append(dbh.quote(val))
 
         if ins:
-            condition += "%s IN (%s)" % (key, ','.join(ins))
+            condition += f"{key} IN ({','.join(ins)})"
             if extra:
                 condition += ' OR '
 
@@ -46,7 +45,7 @@ def make_where_clause(dbh, key, value):
             condition += ' OR '.join(extra)
 
         if ' OR ' in condition:
-            condition = '(%s)' % condition
+            condition = f'({condition})'
 
         if nots:
             condition += ' AND '.join(nots)
@@ -55,23 +54,23 @@ def make_where_clause(dbh, key, value):
          '[' in value or ']' in value or '&' in value:
         condition = dbh.get_regexp_clause(key, value)
     elif '%' in value and '!' not in value:
-        condition = '%s like %s' % (key, dbh.quote(value))
+        condition = f'{key} like {dbh.quote(value)}'
         if '\\' in value:
             condition += " ESCAPE '\\'"
     elif '%' in value and '!' in value:
-        condition = '%s not like %s' % (key, dbh.quote(value))
+        condition = f'{key} not like {dbh.quote(value)}'
         if '\\' in value:
             condition += " ESCAPE '\\'"
     elif '!' in value:
         if value.lower() == 'null':
-            condition = "%s is not NULL" % key
+            condition = f"{key} is not NULL"
         else:
-            condition = '%s != %s' % (key, dbh.quote(value))
+            condition = f'{key} != {dbh.quote(value)}'
     else:
         if value.lower() == 'null':
-            condition = "%s is NULL" % key
+            condition = f"{key} is NULL"
         else:
-            condition = "%s = %s" % (key, dbh.quote(value))
+            condition = f"{key} = {dbh.quote(value)}"
 
     return condition
 
@@ -86,7 +85,7 @@ def create_query_string(dbh, qdict):
     fromtables = []
     whereclauses = []
 
-    print qdict
+    print(qdict)
 
     for tablename, tabledict in qdict.items():
         fromtables.append(tablename)
@@ -96,14 +95,14 @@ def create_query_string(dbh, qdict):
                 table_select_fields = table_select_fields.lower().replace(' ', '').split(',')
 
             if 'all' in table_select_fields:
-                selectfields.append("%s.*" % (tablename))
+                selectfields.append(f"{tablename}.*")
             else:
                 for field in table_select_fields:
-                    selectfields.append("%s.%s" % (tablename, field))
+                    selectfields.append(f"{tablename}.{field}")
 
         if 'key_vals' in tabledict:
             for key, val in tabledict['key_vals'].items():
-                whereclauses.append(make_where_clause(dbh, '%s.%s' % (tablename, key), val))
+                whereclauses.append(make_where_clause(dbh, f'{tablename}.{key}', val))
 
         if 'join' in tabledict:
             for j in tabledict['join'].lower().split(','):
@@ -117,12 +116,9 @@ def create_query_string(dbh, qdict):
                         jtable = tablename
 
                     val = pat_match.group(3).strip()
-                    whereclauses.append('%s.%s=%s' % (jtable, key, val))
+                    whereclauses.append(f'{jtable}.{key}={val}')
 
-    query = "SELECT %s FROM %s WHERE %s" % \
-                (','.join(selectfields),
-                 ','.join(fromtables),
-                 ' AND '.join(whereclauses))
+    query = f"SELECT {','.join(selectfields)} FROM {','.join(fromtables)} WHERE {' AND '.join(whereclauses)}"
     return query
 
 
@@ -132,7 +128,7 @@ def gen_file_query(dbh, query, debug=3):
 
     sql = create_query_string(dbh, query)
     if debug >= 3:
-        print "sql =", sql
+        print("sql =", sql)
 
     curs = dbh.cursor()
     curs.execute(sql)
@@ -156,15 +152,15 @@ def gen_file_list(dbh, query, debug=3):
 #    query['location']['hash_key'] = 'id'
 
     if debug:
-        print "gen_file_list: calling gen_file_query with", query
+        print("gen_file_list: calling gen_file_query with", query)
 
     results = gen_file_query(dbh, query)
 
     if miscutils.fwdebug_check(1, 'PFWFILELIST_DEBUG'):
-        miscutils.fwdebug_print("number of files in list from query = %s" % len(results))
+        miscutils.fwdebug_print(f"number of files in list from query = {len(results)}")
 
     if miscutils.fwdebug_check(3, 'PFWFILELIST_DEBUG'):
-        miscutils.fwdebug_print("list from query = %s" % results)
+        miscutils.fwdebug_print(f"list from query = {results}")
 
     return results
 
@@ -177,15 +173,15 @@ def convert_single_files_to_lines(filelist, initcnt=1):
     linedict = {'list': {}}
 
     if isinstance(filelist, dict) and len(filelist) > 1 and \
-            'filename' not in filelist.keys():
-        filelist = filelist.values()
+            'filename' not in filelist:
+        filelist = list(filelist.values())
     elif isinstance(filelist, dict):  # single file
         filelist = [filelist]
 
     linedict = {'list': {intgdefs.LISTENTRY: {}}}
     for onefile in filelist:
-        fname = "file%05d" % (count)
-        lname = "line%05d" % (count)
+        fname = f"file{count:05d}"
+        lname = f"line{count:05d}"
         linedict['list'][intgdefs.LISTENTRY][lname] = {'file': {fname: onefile}}
         count += 1
     return linedict
@@ -199,7 +195,7 @@ def convert_multiple_files_to_lines(filelist, filelabels, initcnt=1):
     lcnt = initcnt
     lines = {'list': {intgdefs.LISTENTRY: {}}}
     for oneline in filelist:
-        lname = "line%05d" % (lcnt)
+        lname = f"line{lcnt:05d}"
         fsect = {}
         assert len(filelabels) == len(oneline)
         for fcnt, lab in enumerate(filelabels):
@@ -219,7 +215,7 @@ def output_lines(filename, dataset, outtype=intgdefs.DEFAULT_QUERY_OUTPUT_FORMAT
     elif outtype == 'json':
         output_lines_json(filename, dataset)
     else:
-        raise Exception('Invalid outtype (%s).  Valid outtypes: xml, wcl, json' % outtype)
+        raise Exception(f'Invalid outtype ({outtype}).  Valid outtypes: xml, wcl, json')
 
 
 ###########################################################
@@ -231,12 +227,12 @@ def output_lines_xml(filename, dataset):
         for datak, line in dataset.items():
             xmlfh.write("\t<line>\n")
             for name, filedict in line.items():
-                xmlfh.write("\t\t<file nickname='%s'>\n" % name)
+                xmlfh.write(f"\t\t<file nickname='{name}'>\n")
                 for key, val in filedict.items():
                     if key.lower() == 'ccd':
-                        val = "%02d" % (val)
-                    xmlfh.write("\t\t\t<%s>%s</%s>" % (datak, val, datak))
-                xmlfh.write("\t\t\t<fileid>%s</fileid>\n" % (filedict['id']))
+                        val = f"{val:02d}"
+                    xmlfh.write(f"\t\t\t<{datak}>{val}</{datak}>")
+                xmlfh.write(f"\t\t\t<fileid>{filedict['id']}</fileid>\n")
                 xmlfh.write("\t\t</file>\n")
             xmlfh.write("\t</line>\n")
         xmlfh.write("</list>\n")
