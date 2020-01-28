@@ -6,7 +6,7 @@ bin_files = glob.glob("bin/*")
 
 # The main call
 setup(name='IntegrationUtils',
-      version ='2.0.9',
+      version ='3.0.0',
       license = "GPL",
       description = "DESDM's integration utils",
       author = "Michelle Gower",
