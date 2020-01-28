@@ -9,7 +9,7 @@
 
 import copy
 import re
-import pyfits
+from astropy.io import fits
 
 import despymisc.miscutils as miscutils
 import intgutils.intgdefs as intgdefs
@@ -29,9 +29,9 @@ def replace_vars_single(instr, valdict, opts=None):
             retval = values[0]
         else:
             miscutils.fwdebug_print("Error:  Multiple results when calling replace_vars_single")
-            miscutils.fwdebug_print("\tinstr = %s" % instr)
-            miscutils.fwdebug_print("\tvalues = %s" % values)
-            raise KeyError("Error: Single search failed (%s)" % instr)
+            miscutils.fwdebug_print(f"\tinstr = {instr}")
+            miscutils.fwdebug_print(f"\tvalues = {values}")
+            raise KeyError(f"Error: Single search failed ({instr})")
     else:
         retval = values
 
@@ -52,7 +52,7 @@ def replace_vars_type(instr, valdict, required, stype, opts=None):
     newstr = copy.copy(instr)
 
     # be careful of nested variables  ${RMS_${BAND}}
-    varpat = r"(?i)\$%s\{([^$}]+)\}" % stype
+    varpat = fr"(?i)\${stype}\{{([^$}}]+)\}}"
 
     match_var = re.search(varpat, newstr)
     while match_var and count < maxtries:
@@ -68,38 +68,38 @@ def replace_vars_type(instr, valdict, required, stype, opts=None):
         newvar = parts[0]
 
         if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-            miscutils.fwdebug_print("\t newstr: %s " % (newstr))
-            miscutils.fwdebug_print("\t var: %s " % (var))
-            miscutils.fwdebug_print("\t parts: %s " % (parts))
-            miscutils.fwdebug_print("\t newvar: %s " % (newvar))
+            miscutils.fwdebug_print(f"\t newstr: {newstr} ")
+            miscutils.fwdebug_print(f"\t var: {var} ")
+            miscutils.fwdebug_print(f"\t parts: {parts} ")
+            miscutils.fwdebug_print(f"\t newvar: {newvar} ")
 
         # find the variable's value
         if stype == 'HEAD':
             if miscutils.fwdebug_check(0, 'REPL_DEBUG'):
-                miscutils.fwdebug_print("\tfound HEAD variable to expand: %s " % (newvar))
+                miscutils.fwdebug_print(f"\tfound HEAD variable to expand: {newvar} ")
 
             varlist = miscutils.fwsplit(newvar, ',')
             fname = varlist[0]
             if miscutils.fwdebug_check(0, 'REPL_DEBUG'):
-                miscutils.fwdebug_print("\tHEAD variable fname: %s " % (fname))
-            hdulist = pyfits.open(fname, 'readonly')
+                miscutils.fwdebug_print(f"\tHEAD variable fname: {fname} ")
+            hdulist = fits.open(fname, 'readonly')
             newval = []
             for key in varlist[1:]:
                 if miscutils.fwdebug_check(0, 'REPL_DEBUG'):
-                    miscutils.fwdebug_print("\tHEAD variable header key: %s " % (key))
+                    miscutils.fwdebug_print(f"\tHEAD variable header key: {key} ")
                 newval.append(str(fitsutils.get_hdr_value(hdulist, key)))
-            miscutils.fwdebug_print("\tnewval: %s " % (newval))
+            miscutils.fwdebug_print(f"\tnewval: {newval} ")
             newval = ','.join(newval)
             haskey = True
             hdulist.close()
         elif stype == 'FUNC':
             if miscutils.fwdebug_check(0, 'REPL_DEBUG'):
-                miscutils.fwdebug_print("\tfound FUNC variable to expand: %s " % (newvar))
+                miscutils.fwdebug_print(f"\tfound FUNC variable to expand: {newvar} ")
 
             varlist = miscutils.fwsplit(newvar, ',')
             funcinfo = varlist[0]
             if miscutils.fwdebug_check(0, 'REPL_DEBUG'):
-                miscutils.fwdebug_print("\tFUNC info: %s " % (funcinfo))
+                miscutils.fwdebug_print(f"\tFUNC info: {funcinfo} ")
 
             specf = miscutils.dynamically_load_class(funcinfo)
             newval = specf(varlist[1:])
@@ -113,9 +113,9 @@ def replace_vars_type(instr, valdict, required, stype, opts=None):
                 newval = valdict[newvar]
 
         if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-            miscutils.fwdebug_print("\t newvar: %s " % (newvar))
-            miscutils.fwdebug_print("\t haskey: %s " % (haskey))
-            miscutils.fwdebug_print("\t newval: %s " % (newval))
+            miscutils.fwdebug_print(f"\t newvar: {newvar} ")
+            miscutils.fwdebug_print(f"\t haskey: {haskey} ")
+            miscutils.fwdebug_print(f"\t newval: {newval} ")
 
         if haskey:
             newval = str(newval)
@@ -123,36 +123,36 @@ def replace_vars_type(instr, valdict, required, stype, opts=None):
             # check if a multiple value variable (e.g., band, ccdnum)
             if newval.startswith('(') or ',' in newval:
                 if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-                    miscutils.fwdebug_print("\tfound val to expand: %s " % (newval))
-                    miscutils.fwdebug_print("\tfound val to expand: opts=%s " % (opts))
+                    miscutils.fwdebug_print(f"\tfound val to expand: {newval} ")
+                    miscutils.fwdebug_print(f"\tfound val to expand: opts={opts} ")
 
                 if opts is not None and 'expand' in opts and opts['expand']:
-                    newval = '$LOOP{%s}' % var   # postpone for later expanding
+                    newval = f'$LOOP{{{var}}}'   # postpone for later expanding
 
                 if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-                    miscutils.fwdebug_print("\tLOOP? newval = %s" % newval)
+                    miscutils.fwdebug_print(f"\tLOOP? newval = {newval}")
             elif len(parts) > 1:
-                prpat = "%%0%dd" % int(parts[1])
+                prpat = f"{{:0{int(parts[1]):d}d}}"
                 try:
                     keepval = replace_vars_single(newval, valdict, opts)
                     keep[newvar] = keepval
-                    newval = prpat % int(keepval)
+                    newval = prpat.format(int(keepval))
                 except (TypeError, ValueError) as err:
-                    miscutils.fwdebug_print("\tError = %s" % str(err))
-                    miscutils.fwdebug_print("\tprpat = %s" % prpat)
-                    miscutils.fwdebug_print("\tnewval = %s" % newval)
-                    miscutils.fwdebug_print("\topts = %s" % opts)
+                    miscutils.fwdebug_print(f"\tError = {str(err)}")
+                    miscutils.fwdebug_print(f"\tprpat = {prpat}")
+                    miscutils.fwdebug_print(f"\tnewval = {newval}")
+                    miscutils.fwdebug_print(f"\topts = {opts}")
                     raise err
             else:
                 keep[newvar] = newval
 
-            newstr = re.sub(r"(?i)\$%s{%s}" % (stype, var), newval, newstr)
+            newstr = re.sub(fr"(?i)\${stype}{{{var}}}", newval, newstr)
             done = False
         elif required:
-            raise KeyError("Error: Could not find value for %s" % newvar)
+            raise KeyError(f"Error: Could not find value for {newvar}")
         else:
             # missing optional value so replace with empty string
-            newstr = re.sub(r"(?i)\$%s{%s}" % (stype, var), "", newstr)
+            newstr = re.sub(fr"(?i)\${stype}{{{var}}}", "", newstr)
 
         match_var = re.search(varpat, newstr)
 
@@ -174,7 +174,7 @@ def replace_vars_loop(valpair, valdict, opts=None):
         valpair = looptodo.pop()
 
         if miscutils.fwdebug_check(3, 'REPL_DEBUG'):
-            miscutils.fwdebug_print("looptodo: valpair[0] = %s" % valpair[0])
+            miscutils.fwdebug_print(f"looptodo: valpair[0] = {valpair[0]}")
 
         match_loop = re.search(r"(?i)\$LOOP\{([^}]+)\}", valpair[0])
 
@@ -183,41 +183,41 @@ def replace_vars_loop(valpair, valdict, opts=None):
         newvar = parts[0]
 
         if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-            miscutils.fwdebug_print("\tloop search: newvar= %s" % newvar)
-            miscutils.fwdebug_print("\tloop search: opts= %s" % opts)
+            miscutils.fwdebug_print(f"\tloop search: newvar= {newvar}")
+            miscutils.fwdebug_print(f"\tloop search: opts= {opts}")
 
-        (haskey, newval,  ) = valdict.search(newvar, opts)
+        (haskey, newval, ) = valdict.search(newvar, opts)
 
         if haskey:
             if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-                miscutils.fwdebug_print("\tloop search results: newva1= %s" % newval)
+                miscutils.fwdebug_print(f"\tloop search results: newva1= {newval}")
 
             newvalarr = miscutils.fwsplit(newval)
             for nval in newvalarr:
                 if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-                    miscutils.fwdebug_print("\tloop nv: nval=%s" % nval)
+                    miscutils.fwdebug_print("\tloop nv: nval={nval}")
 
                 kval = nval    # save unpadded value for keep
                 if len(parts) > 1:
                     try:
-                        prpat = "%%0%dd" % int(parts[1])
-                        nval = prpat % int(nval)
+                        prpat = f"{{:0{int(parts[1])}d}}"
+                        nval = prpat.format(int(nval))
                     except (TypeError, ValueError) as err:
-                        miscutils.fwdebug_print("\tError = %s" % str(err))
-                        miscutils.fwdebug_print("\tprpat = %s" % prpat)
-                        miscutils.fwdebug_print("\tnval = %s" % nval)
-                        miscutils.fwdebug_print("\topts = %s" % opts)
+                        miscutils.fwdebug_print(f"\tError = {str(err)}")
+                        miscutils.fwdebug_print(f"\tprpat = {prpat}")
+                        miscutils.fwdebug_print(f"\tnval = {nval}")
+                        miscutils.fwdebug_print(f"\topts = {opts}")
                         raise err
 
                 if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-                    miscutils.fwdebug_print("\tloop nv2: nval=%s" % nval)
-                    miscutils.fwdebug_print("\tbefore loop sub: valpair[0]=%s" % valpair[0])
+                    miscutils.fwdebug_print(f"\tloop nv2: nval={nval}")
+                    miscutils.fwdebug_print(f"\tbefore loop sub: valpair[0]={valpair[0]}")
 
-                valsub = re.sub(r"(?i)\$LOOP\{%s\}" % var, nval, valpair[0])
+                valsub = re.sub(fr"(?i)\$LOOP\{{{var}\}}", nval, valpair[0])
                 keep = copy.deepcopy(valpair[1])
                 keep[newvar] = kval
                 if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-                    miscutils.fwdebug_print("\tafter loop sub: valsub=%s" % valsub)
+                    miscutils.fwdebug_print(f"\tafter loop sub: valsub={valsub}")
                 if '$LOOP{' in valsub:
                     if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
                         miscutils.fwdebug_print("\t\tputting back in todo list")
@@ -228,10 +228,10 @@ def replace_vars_loop(valpair, valdict, opts=None):
                     if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
                         miscutils.fwdebug_print("\t\tputting back in done list")
         if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-            miscutils.fwdebug_print("\tNumber in todo list = %s" % len(looptodo))
-            miscutils.fwdebug_print("\tNumber in done list = %s" % len(valuedone))
+            miscutils.fwdebug_print(f"\tNumber in todo list = {len(looptodo)}")
+            miscutils.fwdebug_print(f"\tNumber in done list = {len(valuedone)}")
     if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-        miscutils.fwdebug_print("\tEND OF WHILE LOOP = %s" % len(valuedone))
+        miscutils.fwdebug_print(f"\tEND OF WHILE LOOP = {len(valuedone)}")
 
     return valuedone, keepdone
 
@@ -246,9 +246,9 @@ def replace_vars(instr, valdict, opts=None):
 
     if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
         miscutils.fwdebug_print("BEG")
-        miscutils.fwdebug_print("\tinitial instr = '%s'" % instr)
+        miscutils.fwdebug_print(f"\tinitial instr = '{instr}'")
         #miscutils.fwdebug_print("\tvaldict = '%s'" % valdict)
-        miscutils.fwdebug_print("\tinitial opts = '%s'" % opts)
+        miscutils.fwdebug_print(f"\tinitial opts = '{opts}'")
 
     keep = {}
 
@@ -278,7 +278,7 @@ def replace_vars(instr, valdict, opts=None):
     #print "keep = ", keep
 
     if count >= maxtries:
-        raise Exception("Error: replace_vars function aborting from infinite loop '%s'" % instr)
+        raise Exception(f"Error: replace_vars function aborting from infinite loop '{instr}'")
 
     ##### FUNC
     maxtries = 100    # avoid infinite loop
@@ -296,7 +296,7 @@ def replace_vars(instr, valdict, opts=None):
     #print "keep = ", keep
 
     if count >= maxtries:
-        raise Exception("Error: replace_vars function aborting from infinite loop '%s'" % instr)
+        raise Exception(f"Error: replace_vars function aborting from infinite loop '{instr}'")
 
 
     #####
@@ -312,10 +312,10 @@ def replace_vars(instr, valdict, opts=None):
 
 
     if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-        miscutils.fwdebug_print("\tvaluedone = %s" % valuedone)
-        miscutils.fwdebug_print("\tkeepdone = %s" % keepdone)
-        miscutils.fwdebug_print("\tvaluepair = %s" % str(valpair))
-        miscutils.fwdebug_print("\tinstr = %s" % instr)
+        miscutils.fwdebug_print(f"\tvaluedone = {valuedone}")
+        miscutils.fwdebug_print(f"\tkeepdone = {keepdone}")
+        miscutils.fwdebug_print(f"\tvaluepair = {str(valpair)}")
+        miscutils.fwdebug_print(f"\tinstr = {instr}")
 
     val2return = None
     if len(valuedone) >= 1:
@@ -324,7 +324,7 @@ def replace_vars(instr, valdict, opts=None):
         val2return = valpair
 
     if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
-        miscutils.fwdebug_print("\tval2return = %s" % str(val2return))
+        miscutils.fwdebug_print(f"\tval2return = {str(val2return)}")
     if miscutils.fwdebug_check(5, 'REPL_DEBUG'):
         miscutils.fwdebug_print("END")
     return val2return
