@@ -53,6 +53,8 @@ def wclDiff(f1, f2, ignore_outer_whitespace=False, ignore_blank_lines=False):
 
 
 class TestIntgmisc(unittest.TestCase):
+    wcl_file = ROOT + 'wcl/TEST_DATA_r15p03_full_config.des'
+
     def test_check_files(self):
         files = [ROOT + 'raw/test_raw.fits.fz', ROOT + 'raw/notthere.fits']
         (exist, missing) = igm.check_files(files)
@@ -60,6 +62,29 @@ class TestIntgmisc(unittest.TestCase):
         self.assertEqual(len(missing), 1)
         self.assertTrue('test_raw.fits' in exist[0])
         self.assertTrue('notthere' in missing[0])
+
+    def test_get_cmd_hyphen(self):
+        self.assertEqual('--', igm.get_cmd_hyphen('alldouble', 'test'))
+        self.assertEqual('-', igm.get_cmd_hyphen('allsingle', 'test'))
+        self.assertEqual('--', igm.get_cmd_hyphen('mixed_gnu', 'test'))
+        self.assertEqual('-', igm.get_cmd_hyphen('mixed_gnu', 't'))
+        self.assertRaises(ValueError, igm.get_cmd_hyphen, 'blah', 'test')
+
+    def test_get_exec_sections(self):
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+        res = igm.get_exec_sections(w['module']['band-assemble'], 'exec_')
+        keys = list(res.keys())
+        self.assertEqual(1, len(keys))
+        self.assertEqual('exec_1', keys[0])
+        self.assertEqual('file.coadd', res['exec_1']['was_generated_by'])
+
+    def test_run_exec(self):
+        (retcode, procinfo) = igm.run_exec('ls')
+        self.assertEqual(retcode, 0)
+        self.assertTrue(procinfo['ru_stime'] > 0.)
+
 
 class TestWCL(unittest.TestCase):
     wcl_file = ROOT + 'wcl/TEST_DATA_r15p03_full_config.des'
