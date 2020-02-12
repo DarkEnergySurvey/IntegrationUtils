@@ -114,54 +114,137 @@ class TestIntgmisc(unittest.TestCase):
     def test_read_fullnames_from_listfile(self):
         fname = 'list/mangle/DES2157-5248_r15p03_g_mangle-red.list'
         os.symlink(os.path.join(ROOT, 'list'), 'list', target_is_directory=True)
+        try:
+            w = wcl.WCL()
+            with open(self.wcl_file, 'r') as infh:
+                w.read(infh, self.wcl_file)
+            columns = w['module']['mangle']['list']['red']['columns']
+            res = igm.read_fullnames_from_listfile(fname, 'textcsv', columns)
+            self.assertEqual(len(res), 1)
+            self.assertTrue('red_immask' in res.keys())
+            self.assertEqual(len(res['red_immask']), 169)
+            self.assertFalse(',' in res['red_immask'][25])
 
-        w = wcl.WCL()
-        with open(self.wcl_file, 'r') as infh:
-            w.read(infh, self.wcl_file)
-        columns = w['module']['mangle']['list']['red']['columns']
-        res = igm.read_fullnames_from_listfile(fname, 'textcsv', columns)
-        self.assertEqual(len(res), 1)
-        self.assertTrue('red_immask' in res.keys())
-        self.assertEqual(len(res['red_immask']), 169)
-        self.assertFalse(',' in res['red_immask'][25])
+            res = igm.read_fullnames_from_listfile(fname, 'texttab', columns)
+            self.assertEqual(len(res), 1)
+            self.assertTrue('red_immask' in res.keys())
+            self.assertEqual(len(res['red_immask']), 169)
+            self.assertTrue(',' in res['red_immask'][25])
+            self.assertFalse(res['red_immask'][25].endswith(','))
 
-        res = igm.read_fullnames_from_listfile(fname, 'texttab', columns)
-        self.assertEqual(len(res), 1)
-        self.assertTrue('red_immask' in res.keys())
-        self.assertEqual(len(res['red_immask']), 169)
-        self.assertTrue(',' in res['red_immask'][25])
-        self.assertFalse(res['red_immask'][25].endswith(','))
+            res = igm.read_fullnames_from_listfile(fname, 'textsp', columns)
+            self.assertEqual(len(res), 1)
+            self.assertTrue('red_immask' in res.keys())
+            self.assertEqual(len(res['red_immask']), 169)
+            self.assertTrue(',' in res['red_immask'][25])
+            self.assertTrue(res['red_immask'][25].endswith(','))
 
-        res = igm.read_fullnames_from_listfile(fname, 'textsp', columns)
-        self.assertEqual(len(res), 1)
-        self.assertTrue('red_immask' in res.keys())
-        self.assertEqual(len(res['red_immask']), 169)
-        self.assertTrue(',' in res['red_immask'][25])
-        self.assertTrue(res['red_immask'][25].endswith(','))
+            with capture_output() as (out, _):
+                self.assertRaises(SystemExit, igm.read_fullnames_from_listfile, fname, 'wcl', columns)
+                output = out.getvalue().strip()
+                self.assertTrue('supported' in output)
 
-        with capture_output() as (out, _):
-            self.assertRaises(SystemExit, igm.read_fullnames_from_listfile, fname, 'wcl', columns)
-            output = out.getvalue().strip()
-            self.assertTrue('supported' in output)
-
-        with capture_output() as (out, _):
-            self.assertRaises(SystemExit, igm.read_fullnames_from_listfile, fname, 'unk', columns)
-            output = out.getvalue().strip()
-            self.assertTrue('unknown' in output)
-        os.unlink('list')
+            with capture_output() as (out, _):
+                self.assertRaises(SystemExit, igm.read_fullnames_from_listfile, fname, 'unk', columns)
+                output = out.getvalue().strip()
+                self.assertTrue('unknown' in output)
+        finally:
+            try:
+                os.unlink('list')
+            except:
+                pass
 
     def test_get_list_fullnames(self):
         fname = 'list/mangle/DES2157-5248_r15p03_g_mangle-red.list'
         os.symlink(os.path.join(ROOT, 'list'), 'list', target_is_directory=True)
-        w_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
-        w = wcl.WCL()
-        with open(w_file, 'r') as infh:
-            w.read(infh, w_file)
-        name, fnames = igm.get_list_fullnames('cmdline.red.red_immask', w)
-        self.assertEqual('list/mangle/DES2157-5248_r15p03_g_mangle-red.list', name)
-        self.assertEqual(169, len(fnames))
-        self.assertTrue('red/D00791642_g_c33_r4055p01_immasked.fits.fz' in fnames)
-        os.unlink('list')
+        try:
+            w_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
+            w = wcl.WCL()
+            with open(w_file, 'r') as infh:
+                w.read(infh, w_file)
+            name, fnames = igm.get_list_fullnames('cmdline.red.red_immask', w)
+            self.assertEqual('list/mangle/DES2157-5248_r15p03_g_mangle-red.list', name)
+            self.assertEqual(169, len(fnames))
+            self.assertTrue('red/D00791642_g_c33_r4055p01_immasked.fits.fz' in fnames)
+
+            with capture_output() as (out, _):
+                self.assertRaises(IOError, igm.get_list_fullnames, 'cmdline.red-fail.red_immask', w)
+                output = out.getvalue().strip()
+                self.assertTrue('does not exist' in output)
+
+            with capture_output() as (out, _):
+                name, fnames = igm.get_list_fullnames('cmdline.red-test.red_immask', w)
+                self.assertEqual(len(fnames), 0)
+                output = out.getvalue().strip()
+                self.assertTrue('ERROR: Could not' in output)
+
+            with capture_output() as (out, _):
+                name, fnames = igm.get_list_fullnames('cmdline.red-test2.red_immask', w)
+                self.assertEqual(len(fnames), 0)
+                output = out.getvalue().strip()
+                self.assertTrue('ERROR: Could not' not in output)
+        finally:
+            try:
+                os.unlink('list')
+            except:
+                pass
+
+    def test_get_file_fullnames(self):
+        fname = 'list/mangle/DES2157-5248_r15p03_g_mangle-red.list'
+        os.symlink(os.path.join(ROOT, 'list'), 'list', target_is_directory=True)
+        try:
+            w_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
+            w = wcl.WCL()
+            with open(w_file, 'r') as infh:
+                w.read(infh, w_file)
+            fw = w['filespecs']
+            res = igm.get_file_fullnames('filespecs.polygons', fw, w)
+            self.assertEqual(len(res), 6)
+
+            res = igm.get_file_fullnames('filespecs.polygons2', fw, w)
+            self.assertEqual(len(res), 0)
+
+            res = igm.get_file_fullnames('filespecs.polytiles', fw, w)
+            self.assertEqual(len(res), 0)
+
+        finally:
+            try:
+                os.unlink('list')
+            except:
+                pass
+
+    def test_get_fullnames(self):
+        os.symlink(os.path.join(ROOT, 'list'), 'list', target_is_directory=True)
+        try:
+            w_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
+            w = wcl.WCL()
+            with open(w_file, 'r') as infh:
+                w.read(infh, w_file)
+            full_file = os.path.join(ROOT, 'wcl/TEST_DATA_r15p03_full_config.des')
+            fw = wcl.WCL()
+            with open(full_file, 'r') as infh:
+                fw.read(infh, full_file)
+
+            i, o = igm.get_fullnames(w, fw)
+            self.assertEqual(len(i.keys()), 7)
+            self.assertTrue('filespecs.poltolys' in i)
+            self.assertEqual(len(i['list.nwgint.nwgint']), 169)
+
+            self.assertEqual(len(o.keys()), 8)
+            self.assertTrue('filespecs.molys' in o)
+            self.assertEqual(len(o['filespecs.molys']), 6)
+
+            i1, o1 = igm.get_fullnames(w, fw, 'exec_1')
+            self.assertDictEqual(i1, i)
+            self.assertDictEqual(o1, o)
+
+        finally:
+            try:
+                os.unlink('list')
+            except:
+                pass
+
+
 
 
 class TestWCL(unittest.TestCase):
