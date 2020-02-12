@@ -5,6 +5,7 @@ import os
 import sys
 from contextlib import contextmanager
 from io import StringIO
+from mock import patch
 
 import intgutils.intgmisc as igm
 import intgutils.wcl as wcl
@@ -53,7 +54,7 @@ def wclDiff(f1, f2, ignore_outer_whitespace=False, ignore_blank_lines=False):
 
 
 class TestIntgmisc(unittest.TestCase):
-    wcl_file = ROOT + 'wcl/TEST_DATA_r15p03_full_config.des'
+    wcl_file = os.path.join(ROOT, 'wcl/TEST_DATA_r15p03_full_config.des')
 
     def test_check_files(self):
         files = [ROOT + 'raw/test_raw.fits.fz', ROOT + 'raw/notthere.fits']
@@ -84,6 +85,83 @@ class TestIntgmisc(unittest.TestCase):
         (retcode, procinfo) = igm.run_exec('ls')
         self.assertEqual(retcode, 0)
         self.assertTrue(procinfo['ru_stime'] > 0.)
+
+    def test_remove_column_format(self):
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+        res = igm.remove_column_format(list(w['module']['band-swarp-msk-nobkg']['list']['imgme_nobkg']['div_list_by_col']['sci_nobkg'].values()))
+        self.assertEqual(7, len(res))
+        self.assertTrue('nwgint.fullname' in res)
+        for r in res:
+            self.assertFalse('FMT' in r)
+
+        with capture_output() as (out, _):
+            with patch('intgutils.intgmisc.re.match', side_effect=[None]):
+                self.assertRaises(SystemExit, igm.remove_column_format, list(w['module']['band-swarp-msk-nobkg']['list']['imgme_nobkg']['div_list_by_col']['sci_nobkg'].values()))
+            output = out.getvalue().strip()
+            self.assertTrue('invalid' in output)
+
+    def test_convert_col_string_to_list(self):
+        inp = 'a,b,c,d'
+        res = igm.convert_col_string_to_list(inp)
+        self.assertEqual(4, len(res))
+        self.assertTrue('b' in res)
+        res = igm.convert_col_string_to_list(inp, False)
+        self.assertEqual(4, len(res))
+        self.assertEqual('b', res[1])
+
+    def test_read_fullnames_from_listfile(self):
+        fname = 'list/mangle/DES2157-5248_r15p03_g_mangle-red.list'
+        os.symlink(os.path.join(ROOT, 'list'), 'list', target_is_directory=True)
+
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+        columns = w['module']['mangle']['list']['red']['columns']
+        res = igm.read_fullnames_from_listfile(fname, 'textcsv', columns)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('red_immask' in res.keys())
+        self.assertEqual(len(res['red_immask']), 169)
+        self.assertFalse(',' in res['red_immask'][25])
+
+        res = igm.read_fullnames_from_listfile(fname, 'texttab', columns)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('red_immask' in res.keys())
+        self.assertEqual(len(res['red_immask']), 169)
+        self.assertTrue(',' in res['red_immask'][25])
+        self.assertFalse(res['red_immask'][25].endswith(','))
+
+        res = igm.read_fullnames_from_listfile(fname, 'textsp', columns)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('red_immask' in res.keys())
+        self.assertEqual(len(res['red_immask']), 169)
+        self.assertTrue(',' in res['red_immask'][25])
+        self.assertTrue(res['red_immask'][25].endswith(','))
+
+        with capture_output() as (out, _):
+            self.assertRaises(SystemExit, igm.read_fullnames_from_listfile, fname, 'wcl', columns)
+            output = out.getvalue().strip()
+            self.assertTrue('supported' in output)
+
+        with capture_output() as (out, _):
+            self.assertRaises(SystemExit, igm.read_fullnames_from_listfile, fname, 'unk', columns)
+            output = out.getvalue().strip()
+            self.assertTrue('unknown' in output)
+        os.unlink('list')
+
+    def test_get_list_fullnames(self):
+        fname = 'list/mangle/DES2157-5248_r15p03_g_mangle-red.list'
+        os.symlink(os.path.join(ROOT, 'list'), 'list', target_is_directory=True)
+        w_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
+        w = wcl.WCL()
+        with open(w_file, 'r') as infh:
+            w.read(infh, w_file)
+        name, fnames = igm.get_list_fullnames('cmdline.red.red_immask', w)
+        self.assertEqual('list/mangle/DES2157-5248_r15p03_g_mangle-red.list', name)
+        self.assertEqual(169, len(fnames))
+        self.assertTrue('red/D00791642_g_c33_r4055p01_immasked.fits.fz' in fnames)
+        os.unlink('list')
 
 
 class TestWCL(unittest.TestCase):
