@@ -238,12 +238,17 @@ class TestIntgmisc(unittest.TestCase):
             self.assertEqual(len(o['filespecs.molys']), 6)
 
             with capture_output() as (out, _):
-                self.assertRaises(KeyError, igm.get_fullnames, w, fw)
+                self.assertRaises(KeyError, igm.get_fullnames, w, fw,'exec_2')
                 output = out.getvalue().strip()
                 self.assertTrue('sectkeys' in output)
 
             with capture_output() as (out, _):
                 self.assertRaises(KeyError, igm.get_fullnames, w, fw, 'exec_3')
+                output = out.getvalue().strip()
+                self.assertTrue('sectkeys' in output)
+
+            with capture_output() as (out, _):
+                self.assertRaises(KeyError, igm.get_fullnames, w, fw)
                 output = out.getvalue().strip()
                 self.assertTrue('sectkeys' in output)
 
