@@ -190,7 +190,7 @@ class TestIntgmisc(unittest.TestCase):
                 pass
 
     def test_get_file_fullnames(self):
-        fname = 'list/mangle/DES2157-5248_r15p03_g_mangle-red.list'
+        #fname = 'list/mangle/DES2157-5248_r15p03_g_mangle-red.list'
         os.symlink(os.path.join(ROOT, 'list'), 'list', target_is_directory=True)
         try:
             w_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
@@ -216,6 +216,9 @@ class TestIntgmisc(unittest.TestCase):
     def test_get_fullnames(self):
         os.symlink(os.path.join(ROOT, 'list'), 'list', target_is_directory=True)
         try:
+            f = open('list/mangle/DES2157-5248_r15p03_g_mangle-out.list', 'w')
+            f.write('\n')
+            f.close()
             w_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
             w = wcl.WCL()
             with open(w_file, 'r') as infh:
@@ -225,25 +228,49 @@ class TestIntgmisc(unittest.TestCase):
             with open(full_file, 'r') as infh:
                 fw.read(infh, full_file)
 
-            i, o = igm.get_fullnames(w, fw)
+            i, o = igm.get_fullnames(w, fw, 'exec_1')
             self.assertEqual(len(i.keys()), 7)
             self.assertTrue('filespecs.poltolys' in i)
             self.assertEqual(len(i['list.nwgint.nwgint']), 169)
 
-            self.assertEqual(len(o.keys()), 8)
+            self.assertEqual(len(o.keys()), 9)
             self.assertTrue('filespecs.molys' in o)
             self.assertEqual(len(o['filespecs.molys']), 6)
 
-            i1, o1 = igm.get_fullnames(w, fw, 'exec_1')
-            self.assertDictEqual(i1, i)
-            self.assertDictEqual(o1, o)
+            with capture_output() as (out, _):
+                self.assertRaises(KeyError, igm.get_fullnames, w, fw)
+                output = out.getvalue().strip()
+                self.assertTrue('sectkeys' in output)
 
+            with capture_output() as (out, _):
+                self.assertRaises(KeyError, igm.get_fullnames, w, fw, 'exec_3')
+                output = out.getvalue().strip()
+                self.assertTrue('sectkeys' in output)
+
+        finally:
+            try:
+                os.unlink('list/mangle/DES2157-5248_r15p03_g_mangle-out.list')
+                os.unlink('list')
+            except:
+                pass
+
+    def test_check_input_files(self):
+        fname = 'list/mangle/DES2157-5248_r15p03_g_mangle-red.list'
+        os.symlink(os.path.join(ROOT, 'list'), 'list', target_is_directory=True)
+        try:
+            w_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
+            w = wcl.WCL()
+            with open(w_file, 'r') as infh:
+                w.read(infh, w_file)
+            fw = w['filespecs']
+            exist, miss = igm.check_input_files('cmdline.coadd', fw)
+            self.assertEqual(len(exist), 0)
+            self.assertEqual(len(miss), 1)
         finally:
             try:
                 os.unlink('list')
             except:
                 pass
-
 
 
 
