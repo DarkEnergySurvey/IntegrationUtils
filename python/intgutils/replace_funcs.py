@@ -93,12 +93,12 @@ def replace_vars_type(instr, valdict, required, stype, opts=None):
             haskey = True
             hdulist.close()
         elif stype == 'FUNC':
-            if miscutils.fwdebug_check(0, 'REPL_DEBUG'):
+            if miscutils.fwdebug_check(1, 'REPL_DEBUG'):
                 miscutils.fwdebug_print(f"\tfound FUNC variable to expand: {newvar} ")
 
             varlist = miscutils.fwsplit(newvar, ',')
             funcinfo = varlist[0]
-            if miscutils.fwdebug_check(0, 'REPL_DEBUG'):
+            if miscutils.fwdebug_check(1, 'REPL_DEBUG'):
                 miscutils.fwdebug_print(f"\tFUNC info: {funcinfo} ")
 
             specf = miscutils.dynamically_load_class(funcinfo)
