@@ -286,6 +286,11 @@ class TestReplaceFuncs(unittest.TestCase):
         cls.w = wcl.WCL()
         with open(wcl_file, 'r') as infh:
             cls.w.read(infh, wcl_file)
+        full_file = os.path.join(ROOT, 'wcl/TEST_DATA_r15p03_full_config.des')
+        cls.fw = wcl.WCL()
+        with open(full_file, 'r') as infh:
+            cls.fw.read(infh, full_file)
+
 
     def test_replace_vars_type_wcl(self):
         done, res, data = rf.replace_vars_type(self.w['exec_1']['cmdline']['molysprefix'],
@@ -334,17 +339,25 @@ class TestReplaceFuncs(unittest.TestCase):
                                                {'x': 'y'})
         self.assertEqual('(e)', res)
 
-    def test_replace_vars_loop(self):
-        w_file = os.path.join(ROOT, 'wcl/TEST_DATA_r15p03_full_config.des')
-        wc = wcl.WCL()
-        with open(w_file, 'r') as infh:
-            wc.read(infh, w_file)
-
-        vals, keep = rf.replace_vars_loop(('$LOOP{bands}', {}), wc)
+    def test_replace_vars_loop_basic(self):
+        vals, keep = rf.replace_vars_loop(('$LOOP{bands}', {}), self.fw)
         self.assertEqual(len(vals), 5)
         self.assertTrue('g' in vals)
         self.assertTrue(len(vals) == len(keep))
         self.assertTrue(keep[0]['bands'] in vals)
+
+    def test_replace_vars_loop_pad(self):
+        vals, keep = rf.replace_vars_loop(('$LOOP{ccds:02}',{}), self.fw)
+        self.assertEqual(len(vals), 5)
+        self.assertTrue('01' in vals)
+        self.assertTrue(len(vals) == len(keep))
+        self.assertTrue('0' + keep[0]['ccds'] in vals)
+
+    def test_replace_vars_loop_double(self):
+        vals, keep = rf.replace_vars_loop(('$LOOP{band_ccd}',{}), self.fw)
+        self.assertEqual(len(vals), 10)
+        self.assertTrue('b1' in vals)
+        self.assertTrue(len(vals) == len(keep))
 
 class TestWCL(unittest.TestCase):
     wcl_file = ROOT + 'wcl/TEST_DATA_r15p03_full_config.des'
