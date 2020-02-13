@@ -280,23 +280,71 @@ class TestIntgmisc(unittest.TestCase):
 
 
 class TestReplaceFuncs(unittest.TestCase):
-    wcl_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
+    @classmethod
+    def setUp(cls):
+        wcl_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
+        cls.w = wcl.WCL()
+        with open(wcl_file, 'r') as infh:
+            cls.w.read(infh, wcl_file)
 
-    def test_replace_vars_type(self):
-        w = wcl.WCL()
-        with open(self.wcl_file, 'r') as infh:
-            w.read(infh, self.wcl_file)
-        done, res, data = rf.replace_vars_type(w['exec_1']['cmdline']['molysprefix'], w, False, '')
+    def test_replace_vars_type_wcl(self):
+        done, res, data = rf.replace_vars_type(self.w['exec_1']['cmdline']['molysprefix'],
+                                               self.w, False, '')
         self.assertFalse(done)
         self.assertEqual(res, 'mangle/g/TEST_DATA_r15p03_g_molys')
         self.assertEqual(data['band'], 'g')
         self.assertEqual(data['reqnum'], '15')
 
-        done, res, data = rf.replace_vars_type(f'$HEAD{{{ROOT}/cat/test_g_cat.fits,ORIGIN}}', w, True, 'HEAD')
+    def test_replace_vars_type_header(self):
+        done, res, data = rf.replace_vars_type(f'$HEAD{{{ROOT}/cat/test_g_cat.fits,ORIGIN}}',
+                                               self.w, True, 'HEAD')
         self.assertEqual('SExtractor', res)
 
-        done, res, data = rf.replace_vars_type(f'$FUNC{{tester.add,1,2,3}}', w, True, 'FUNC')
+    def test_replace_vars_type_func(self):
+        done, res, data = rf.replace_vars_type(f'$FUNC{{tester.add,1,2,3}}', self.w, True, 'FUNC')
         self.assertEqual(res, '6')
+
+    def test_replace_vars_type_other(self):
+        done, res, data = rf.replace_vars_type("${band}", {'band': 'e'}, False, '')
+        self.assertEqual(res, 'e')
+
+        done, res, data = rf.replace_vars_type("${band}", {'bands': 'e'}, False, '')
+        self.assertEqual(res, '')
+
+        self.assertRaises(KeyError, rf.replace_vars_type, "${band}", {'bands': 'e'}, True, '')
+
+        with patch('intgutils.replace_funcs.replace_vars_single', side_effect=TypeError):
+            with capture_output() as (out, _):
+                self.assertRaises(TypeError, rf.replace_vars_type,
+                                  self.w['exec_1']['cmdline']['molysprefix'] + ":var",
+                                  self.w, False, '')
+                output = out.getvalue().strip()
+                self.assertTrue("prpat" in output)
+
+    def test_replace_vars_type_expand(self):
+        done, res, data = rf.replace_vars_type("${band}", {'band': '(e)'}, False, '',
+                                               {'expand': True})
+        self.assertTrue('LOOP' in res)
+
+        done, res, data = rf.replace_vars_type("${band}", {'band': '(e)'}, False, '',
+                                               {'expand': False})
+        self.assertEqual('(e)', res)
+
+        done, res, data = rf.replace_vars_type("${band}", {'band': '(e)'}, False, '',
+                                               {'x': 'y'})
+        self.assertEqual('(e)', res)
+
+    def test_replace_vars_loop(self):
+        w_file = os.path.join(ROOT, 'wcl/TEST_DATA_r15p03_full_config.des')
+        wc = wcl.WCL()
+        with open(w_file, 'r') as infh:
+            wc.read(infh, w_file)
+
+        vals, keep = rf.replace_vars_loop(('$LOOP{bands}', {}), wc)
+        self.assertEqual(len(vals), 5)
+        self.assertTrue('g' in vals)
+        self.assertTrue(len(vals) == len(keep))
+        self.assertTrue(keep[0]['bands'] in vals)
 
 class TestWCL(unittest.TestCase):
     wcl_file = ROOT + 'wcl/TEST_DATA_r15p03_full_config.des'
