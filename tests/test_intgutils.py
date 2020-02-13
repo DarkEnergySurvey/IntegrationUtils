@@ -85,7 +85,7 @@ class TestIntgmisc(unittest.TestCase):
     def test_run_exec(self):
         (retcode, procinfo) = igm.run_exec('ls')
         self.assertEqual(retcode, 0)
-        self.assertTrue(procinfo['ru_stime'] > 0.)
+        self.assertTrue(procinfo['ru_stime'] >= 0.)
 
     def test_remove_column_format(self):
         w = wcl.WCL()
@@ -306,7 +306,7 @@ class TestReplaceFuncs(unittest.TestCase):
         self.assertEqual('SExtractor', res)
 
     def test_replace_vars_type_func(self):
-        done, res, data = rf.replace_vars_type(f'$FUNC{{tester.add,1,2,3}}', self.w, True, 'FUNC')
+        done, res, data = rf.replace_vars_type("$FUNC{tester.add,1,2,3}", self.w, True, 'FUNC')
         self.assertEqual(res, '6')
 
     def test_replace_vars_type_other(self):
@@ -358,6 +358,32 @@ class TestReplaceFuncs(unittest.TestCase):
         self.assertEqual(len(vals), 10)
         self.assertTrue('b1' in vals)
         self.assertTrue(len(vals) == len(keep))
+
+    def test_replace_vars(self):
+        res, data = rf.replace_vars(self.fw['ops_run_dir'], self.fw)
+        self.assertTrue('ACT/multi' in res)
+        self.assertTrue('project' in data)
+        self.assertEqual('ACT', data['project'])
+
+    def test_replace_vars_infinite(self):
+        self.assertRaises(Exception, rf.replace_vars, self.fw['infinite'], self.fw)
+
+        self.assertRaises(Exception, rf.replace_vars, '$FUNC{tester.infinite,1,2}', self.fw)
+
+    def test_replace_vars_loop(self):
+        res, data = rf.replace_vars(self.fw['band_ccd'], self.fw)
+        self.assertEqual(len(res), 5)
+
+        res, data = rf.replace_vars(self.fw['band_ccd'], self.fw, {'opt': 1})
+        self.assertEqual(len(res), 5)
+
+    def test_replace_vars_single(self):
+        self.assertTrue('ACT' in rf.replace_vars_single(self.fw['ops_run_dir'], self.fw))
+
+        with capture_output() as (out, _):
+            self.assertRaises(KeyError, rf.replace_vars_single, self.fw['band_ccd'], self.fw)
+            output = out.getvalue().strip()
+            self.assertTrue('Error:  Multiple' in output)
 
 class TestWCL(unittest.TestCase):
     wcl_file = ROOT + 'wcl/TEST_DATA_r15p03_full_config.des'
