@@ -385,6 +385,8 @@ class TestReplaceFuncs(unittest.TestCase):
             output = out.getvalue().strip()
             self.assertTrue('Error:  Multiple' in output)
 
+        self.assertEqual(rf.replace_vars_single(self.fw['single_loop'], self.fw), '2868742')
+
 class TestWCL(unittest.TestCase):
     wcl_file = ROOT + 'wcl/TEST_DATA_r15p03_full_config.des'
     def test_init(self):
@@ -439,13 +441,13 @@ class TestWCL(unittest.TestCase):
         res2 = w.search('dirn')
         self.assertFalse(res2[0])
 
-        #res = w.search('filename_pattern')
+        res = w.search('filename_pattern')
 
-        #res2 = w.search('filename_pattern', {'currentvals': {'runjob': 'rnj.sh'}})
-        #print(res2[1]['runjob'])
-        #self.assertTrue(res2[0])
-        #self.assertEqual(res2[1]['runjob'], 'rnj.sh')
-        #self.assertNotEqual(res, res2)
+        res2 = w.search('filename_pattern', {'currentvals': {'runjob': 'rnj.sh'}})
+        print(res2[1]['runjob'])
+        self.assertTrue(res2[0])
+        self.assertEqual(res2[1]['runjob'], 'runjob.sh')
+        self.assertEqual(res, res2)
 
     def test_search_wcl_for_variables(self):
         w = wcl.WCL()
