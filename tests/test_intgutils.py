@@ -429,7 +429,7 @@ class TestWCL(unittest.TestCase):
         w.set('directory_pattern.inputwcl.name', 'bob')
         self.assertEqual(w.get('directory_pattern.inputwcl.name'), 'bob')
 
-    def test_search(self):
+    def test_search_basic(self):
         w = wcl.WCL()
         with open(self.wcl_file, 'r') as infh:
             w.read(infh, self.wcl_file)
@@ -441,13 +441,54 @@ class TestWCL(unittest.TestCase):
         res2 = w.search('dirn')
         self.assertFalse(res2[0])
 
+    def test_search_opts(self):
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+
         res = w.search('filename_pattern')
 
         res2 = w.search('filename_pattern', {'currentvals': {'runjob': 'rnj.sh'}})
-        print(res2[1]['runjob'])
+
         self.assertTrue(res2[0])
         self.assertEqual(res2[1]['runjob'], 'runjob.sh')
         self.assertEqual(res, res2)
+
+    def test_search_error(self):
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+
+        with capture_output() as (out, _):
+            w.search(2)
+            output = out.getvalue().strip()
+            self.assertTrue('key' in output)
+
+        self.assertFalse(w.search('a,ops_run_dir')[0])
+
+
+    def test_search_current(self):
+        wcl_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
+        w2 = wcl.WCL()
+        with open(wcl_file, 'r') as infh:
+            w2.read(infh, wcl_file)
+
+        self.assertEqual(w2.search('runsite')[1], 'somewhere')
+
+        self.assertEqual(w2.search('runsite', {'currentvals':{'runsite': 'nowhere'}})[1], 'nowhere')
+
+    def test_search_required(self):
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+
+        item = 'ops_out_dir'
+        w.search(item)
+        with capture_output() as (out, _):
+            self.assertRaises(KeyError, w.search, item, {'required': True})
+            output = out.getvalue().strip()
+            self.assertTrue(item in output)
+            self.assertTrue('Error' in output)
 
     def test_search_wcl_for_variables(self):
         w = wcl.WCL()
