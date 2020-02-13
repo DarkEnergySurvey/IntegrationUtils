@@ -286,11 +286,17 @@ class TestReplaceFuncs(unittest.TestCase):
         w = wcl.WCL()
         with open(self.wcl_file, 'r') as infh:
             w.read(infh, self.wcl_file)
-        req, res, data = rf.replace_vars_type(w['exec_1']['cmdline']['molysprefix'], w, False, '')
-        self.assertFalse(req)
+        done, res, data = rf.replace_vars_type(w['exec_1']['cmdline']['molysprefix'], w, False, '')
+        self.assertFalse(done)
         self.assertEqual(res, 'mangle/g/TEST_DATA_r15p03_g_molys')
         self.assertEqual(data['band'], 'g')
         self.assertEqual(data['reqnum'], '15')
+
+        done, res, data = rf.replace_vars_type(f'$HEAD{{{ROOT}/cat/test_g_cat.fits,ORIGIN}}', w, True, 'HEAD')
+        self.assertEqual('SExtractor', res)
+
+        done, res, data = rf.replace_vars_type(f'$FUNC{{tester.add,1,2,3}}', w, True, 'FUNC')
+        self.assertEqual(res, '6')
 
 class TestWCL(unittest.TestCase):
     wcl_file = ROOT + 'wcl/TEST_DATA_r15p03_full_config.des'
