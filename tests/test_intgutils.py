@@ -8,6 +8,7 @@ from io import StringIO
 from mock import patch
 
 import intgutils.intgmisc as igm
+import intgutils.replace_funcs as rf
 import intgutils.wcl as wcl
 
 ROOT = '/var/lib/jenkins/test_data/'
@@ -278,6 +279,18 @@ class TestIntgmisc(unittest.TestCase):
                 pass
 
 
+class TestReplaceFuncs(unittest.TestCase):
+    wcl_file = os.path.join(ROOT, 'wcl/DES2157-5248_r15p03_g_mangle_input.wcl')
+
+    def test_replace_vars_type(self):
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+        req, res, data = rf.replace_vars_type(w['exec_1']['cmdline']['molysprefix'], w, False, '')
+        self.assertFalse(req)
+        self.assertEqual(res, 'mangle/g/TEST_DATA_r15p03_g_molys')
+        self.assertEqual(data['band'], 'g')
+        self.assertEqual(data['reqnum'], '15')
 
 class TestWCL(unittest.TestCase):
     wcl_file = ROOT + 'wcl/TEST_DATA_r15p03_full_config.des'
