@@ -115,7 +115,10 @@ def replace_vars_type(instr, valdict, required, stype, opts=None):
         if miscutils.fwdebug_check(6, 'REPL_DEBUG'):
             miscutils.fwdebug_print(f"\t newvar: {newvar} ")
             miscutils.fwdebug_print(f"\t haskey: {haskey} ")
-            miscutils.fwdebug_print(f"\t newval: {newval} ")
+            try:  # newval may be undefined
+                miscutils.fwdebug_print(f"\t newval: {newval} ")
+            except:
+                pass
 
         if haskey:
             newval = str(newval)
