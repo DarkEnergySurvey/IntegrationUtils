@@ -606,6 +606,35 @@ class TestWCL(unittest.TestCase):
             output = out.getvalue().strip()
             self.assertTrue('myspecs' in output)
 
+        with capture_output() as (out, _):
+            wfl = os.path.join(ROOT, 'wcl/bad4.wcl')
+            w = wcl.WCL()
+            infh = open(wfl, 'r')
+            self.assertRaises(SyntaxError, w.read, infh, wfl)
+            infh.close()
+            output = out.getvalue().strip()
+            self.assertTrue('myspecs' in output)
+
+    def test_print(self):
+        stack = [{'start': 'a', 'end': 'b'}, {'top': 1, 'bottom':4}]
+        keys = ['first', 'second']
+        w = wcl.WCL()
+        with capture_output() as (out, _):
+            w._print_stack(keys, stack)
+            output = out.getvalue().strip()
+            self.assertTrue('second' in output)
+            self.assertTrue('start' in output)
+
+        keys = ['first']
+        with capture_output() as (out, _):
+            w._print_stack(keys, stack)
+            output = out.getvalue().strip()
+            self.assertTrue('first' in output)
+            self.assertTrue('start' in output)
+            self.assertFalse('second' in output)
+            self.assertTrue('Warning' in output)
+
+
     def test_getfull(self):
         w = wcl.WCL()
         with open(self.wcl_file, 'r') as infh:
