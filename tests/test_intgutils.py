@@ -441,6 +441,8 @@ class TestWCL(unittest.TestCase):
         res2 = w.search('dirn')
         self.assertFalse(res2[0])
 
+        self.assertEqual(w.search('directory_pattern.inputwcl2')[1], '')
+
     def test_search_opts(self):
         w = wcl.WCL()
         with open(self.wcl_file, 'r') as infh:
@@ -550,8 +552,23 @@ class TestWCL(unittest.TestCase):
         w.write(open('out.wcl', 'w'))
         self.assertFalse(wclDiff(self.wcl_file, 'out.wcl', ignore_blank_lines=True))
 
-
         os.unlink('out.wcl')
+
+    def test_read(self):
+        wfl = os.path.join(ROOT, 'wcl/test.wcl')
+        w = wcl.WCL()
+        with capture_output() as (out, _):
+            with open(wfl, 'r') as infh:
+                w.read(infh, wfl)
+            output = out.getvalue().strip()
+            self.assertTrue('Ignoring' in output)
+        self.assertTrue('exec_1' in w)
+
+        self.assertEqual(6, int(w['myval']))
+
+        self.assertEqual(7, int(w['now']))
+
+
 
 if __name__ == '__main__':
     unittest.main()
