@@ -490,6 +490,31 @@ class TestWCL(unittest.TestCase):
             self.assertTrue(item in output)
             self.assertTrue('Error' in output)
 
+    def test_search_searchobj(self):
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+
+        self.assertFalse(w.search(2)[0])
+
+        self.assertEquals(4, w.search(2, {'searchobj': {2: 4}})[1])
+
+        self.assertFalse(w.search(2, {'opt': 2})[0])
+
+        self.assertFalse(w.search(2, {'searchobj': {4: 2}})[0])
+
+
+    def test_search_order(self):
+        SEARCH_ORDER = ['file', 'list', 'exec', 'job', 'module', 'block', 'archive', 'site']
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+        w.set_search_order(SEARCH_ORDER)
+        self.assertTrue(w.search(2)[1] == '')
+        done, res = w.search('blockname')
+        self.assertEqual(res, 'meds')
+
+
     def test_search_wcl_for_variables(self):
         w = wcl.WCL()
         with open(self.wcl_file, 'r') as infh:
