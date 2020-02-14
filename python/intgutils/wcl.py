@@ -193,7 +193,7 @@ class WCL(collections.OrderedDict):
         for key, val in wcl.items():
             if isinstance(val, (dict, collections.OrderedDict)):
                 uvars = cls.search_wcl_for_variables(val)
-                if uvars is not None:
+                if uvars:
                     usedvars.update(uvars)
             elif isinstance(val, str):
                 viter = [m.group(1) for m in re.finditer(r'(?i)\$\{([^}]+)\}', val)]
@@ -405,7 +405,7 @@ class WCL(collections.OrderedDict):
                     line = in_file.readline()
                     linecnt += 1
                     continue
-
+                print("HERE")
                 pat_key_val = r"^\s*(\S+)(\s+)([^=].*)\s*$"
                 pat_match = re.search(pat_key_val, line)
                 if pat_match is not None:
