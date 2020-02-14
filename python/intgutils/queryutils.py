@@ -35,7 +35,6 @@ def make_where_clause(dbh, key, value):
                 nots.append(make_where_clause(dbh, key, val))
             else:
                 ins.append(dbh.quote(val))
-
         if ins:
             condition += f"{key} IN ({','.join(ins)})"
             if extra:
@@ -48,7 +47,7 @@ def make_where_clause(dbh, key, value):
             condition = f'({condition})'
 
         if nots:
-            condition += ' AND '.join(nots)
+            condition += ' AND ' + ' AND '.join(nots)
 
     elif '*' in value or '^' in value or '$' in value or \
          '[' in value or ']' in value or '&' in value:
@@ -58,14 +57,15 @@ def make_where_clause(dbh, key, value):
         if '\\' in value:
             condition += " ESCAPE '\\'"
     elif '%' in value and '!' in value:
-        condition = f'{key} not like {dbh.quote(value)}'
+        condition = f"{key} not like {dbh.quote(value.replace('!', ''))}"
         if '\\' in value:
             condition += " ESCAPE '\\'"
     elif '!' in value:
+        value = value.replace('!', '')
         if value.lower() == 'null':
             condition = f"{key} is not NULL"
         else:
-            condition = f'{key} != {dbh.quote(value)}'
+            condition = f"{key} != {dbh.quote(value)}"
     else:
         if value.lower() == 'null':
             condition = f"{key} is NULL"
