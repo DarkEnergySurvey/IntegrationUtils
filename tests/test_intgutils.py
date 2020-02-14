@@ -2,6 +2,7 @@
 
 import unittest
 import os
+import stat
 import sys
 from contextlib import contextmanager
 from io import StringIO
@@ -11,6 +12,11 @@ import intgutils.intgmisc as igm
 import intgutils.replace_funcs as rf
 import intgutils.intgdefs as intgdefs
 import intgutils.wcl as wcl
+import intgutils.queryutils as iqu
+
+import despydmdb.desdmdbi as dmdbi
+from MockDBI import MockConnection
+
 
 ROOT = '/var/lib/jenkins/test_data/'
 
@@ -650,6 +656,91 @@ class TestWCL(unittest.TestCase):
         self.assertTrue('$' in val2)
         self.assertFalse('$' in val)
 
+class TestQueryUtils(unittest.TestCase):
+    @classmethod
+    def setUp(cls):
+        cls.sfile = 'services.ini'
+        open(cls.sfile, 'w').write("""
+
+[db-maximal]
+PASSWD  =   maximal_passwd
+name    =   maximal_name_1    ; if repeated last name wins
+user    =   maximal_name      ; if repeated key, last one wins
+Sid     =   maximal_sid       ;comment glued onto value not allowed
+type    =   POSTgres
+server  =   maximal_server
+
+[db-minimal]
+USER    =   Minimal_user
+PASSWD  =   Minimal_passwd
+name    =   Minimal_name
+sid     =   Minimal_sid
+server  =   Minimal_server
+type    =   oracle
+
+[db-test]
+USER    =   Minimal_user
+PASSWD  =   Minimal_passwd
+name    =   Minimal_name
+sid     =   Minimal_sid
+server  =   Minimal_server
+type    =   test
+port    =   0
+""")
+        os.chmod(cls.sfile, (0xffff & ~(stat.S_IROTH | stat.S_IWOTH | stat.S_IRGRP | stat.S_IWGRP)))
+        cls.dbh = dmdbi.DesDmDbi(cls.sfile, 'db-test')
+
+    @classmethod
+    def tearDownClass(cls):
+        os.unlink(cls.sfile)
+        MockConnection.destroy()
+
+    def test_make_where_clause(self):
+        key = 'hello'
+        val = 'bye'
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue(key in res)
+        self.assertTrue(val in res)
+        self.assertTrue('=' in res)
+
+        val = 'NuLl'
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue('is NULL' in res)
+
+        val = '%bye'
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue(key in res)
+        self.assertTrue(val in res)
+        self.assertTrue('like' in res)
+
+        val = '!bye'
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue(key in res)
+        self.assertTrue(val.replace('!', '') in res)
+        self.assertTrue('!=' in res)
+
+        val = '\\%bye'
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue('ESCAPE' in res)
+
+        val = '\\!%bye'
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue('ESCAPE' in res)
+
+        val = "!%bye"
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue('not like' in res)
+
+        val = "!nUll"
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue('is not NULL' in res)
+
+        val = ['bye', 'up', '%good', '!bad']
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue(' IN ' in res)
+        self.assertTrue(' OR ' in res)
+        self.assertTrue(' AND ' in res)
+        self.assertTrue('!=' in res)
 
 if __name__ == '__main__':
     unittest.main()
