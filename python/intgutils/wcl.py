@@ -483,32 +483,3 @@ class WCL(collections.OrderedDict):
                 stackinfo = list(stack[i].keys())
             print(f"\t{i:d}: {skey} = {stackinfo}")
         print("\n\n")
-
-
-def run_test():
-    """Calls read and write routines as a test"""
-
-    # created in order for the following variables
-    # to be local instead of at module level
-
-    if len(sys.argv) != 2:
-        test_wcl_fh = sys.stdin
-        test_fname = 'stdin'
-    else:
-        test_fname = sys.argv[1]
-        test_wcl_fh = open(test_fname, "r")
-
-    testwcl = WCL()
-    try:
-        testwcl.read(test_wcl_fh, filename=test_fname)
-    except SyntaxError as err:
-        print(err)
-        sys.exit(1)
-
-    test_wcl_fh.close()
-    testwcl.write(sys.stdout, False, 4)
-    #   testwcl.write(sys.stdout, True, 4)
-
-
-if __name__ == "__main__":
-    run_test()
