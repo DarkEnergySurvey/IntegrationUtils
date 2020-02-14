@@ -9,6 +9,7 @@ from mock import patch
 
 import intgutils.intgmisc as igm
 import intgutils.replace_funcs as rf
+import intgutils.intgdefs as intgdefs
 import intgutils.wcl as wcl
 
 ROOT = '/var/lib/jenkins/test_data/'
@@ -568,6 +569,57 @@ class TestWCL(unittest.TestCase):
 
         self.assertEqual(7, int(w['now']))
 
+    def test_read_error(self):
+        wfl = os.path.join(ROOT, 'wcl/bad.wcl')
+        w = wcl.WCL()
+        infh = open(wfl, 'r')
+        self.assertRaises(SyntaxError, w.read, infh, wfl)
+        infh.close()
+        del w
+
+        with capture_output() as (out, _):
+            wfl = os.path.join(ROOT, 'wcl/bad1.wcl')
+            w = wcl.WCL()
+            infh = open(wfl, 'r')
+            self.assertRaises(SyntaxError, w.read, infh, wfl)
+            infh.close()
+            output = out.getvalue().strip()
+            self.assertTrue('myspecs' in output)
+            del w
+
+        with capture_output() as (out, _):
+            wfl = os.path.join(ROOT, 'wcl/bad2.wcl')
+            w = wcl.WCL()
+            infh = open(wfl, 'r')
+            self.assertRaises(SyntaxError, w.read, infh, wfl)
+            infh.close()
+            output = out.getvalue().strip()
+            self.assertTrue('subspec' in output)
+            del w
+
+        with capture_output() as (out, _):
+            wfl = os.path.join(ROOT, 'wcl/bad3.wcl')
+            w = wcl.WCL()
+            infh = open(wfl, 'r')
+            self.assertRaises(SyntaxError, w.read, infh, wfl)
+            infh.close()
+            output = out.getvalue().strip()
+            self.assertTrue('myspecs' in output)
+
+    def test_getfull(self):
+        w = wcl.WCL()
+        with open(self.wcl_file, 'r') as infh:
+            w.read(infh, self.wcl_file)
+
+        self.assertIsNone(w.getfull('this_is_missing', default=None))
+        self.assertTrue(isinstance(w.getfull('module'), dict))
+        val = w.getfull('ops_run_dir')
+        val1 = w.getfull('ops_run_dir', opts={})
+        val2 = w.getfull('ops_run_dir', opts={intgdefs.REPLACE_VARS: False})
+        self.assertEqual(val, val1)
+        self.assertNotEqual(val, val2)
+        self.assertTrue('$' in val2)
+        self.assertFalse('$' in val)
 
 
 if __name__ == '__main__':
