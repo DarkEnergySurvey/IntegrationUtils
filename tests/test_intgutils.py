@@ -4,9 +4,11 @@ import unittest
 import os
 import stat
 import sys
+import copy
 from contextlib import contextmanager
 from io import StringIO
 from mock import patch
+import json
 
 import intgutils.intgmisc as igm
 import intgutils.replace_funcs as rf
@@ -58,8 +60,14 @@ def wclDiff(f1, f2, ignore_outer_whitespace=False, ignore_blank_lines=False):
             return False
     return True
 
-
-
+def wcl_to_dict(w):
+    d = {}
+    for k, v in w.items():
+        if isinstance(v, dict):
+            d[k] = wcl_to_dict(v)
+        else:
+            d[k] = copy.deepcopy(v)
+    return d
 
 class TestIntgmisc(unittest.TestCase):
     wcl_file = os.path.join(ROOT, 'wcl/TEST_DATA_r15p03_full_config.des')
@@ -855,6 +863,114 @@ port    =   0
         flist = {'file1': 'first.file'}
         res = iqu.convert_single_files_to_lines(flist)
         self.assertDictEqual(res, expected)
+
+        flist = ['first.file', 'second.file']
+        expected = {'list': {'line': {'line00001': {'file': {'file00001': 'first.file'}},
+                                      'line00002': {'file': {'file00002': 'second.file'}}}}}
+        res = iqu.convert_single_files_to_lines(flist)
+        self.assertDictEqual(res, expected)
+
+    def test_convert_multiple_files_to_lines(self):
+        flist = [[{'file00001': 'first.file'},
+                  {'file00002': 'second.file'}],
+                 [{'file00003': 'third.file'},
+                  {'file00004': 'fourth.file'}]]
+        expected = {'list': {'line': {'line00001': {'file': {'one': {'file00001': 'first.file'},
+                                                             'two': {'file00002': 'second.file'}}},
+                                      'line00002': {'file': {'one': {'file00003': 'third.file'},
+                                                             'two': {'file00004': 'fourth.file'}}}}}}
+
+        res = iqu.convert_multiple_files_to_lines(flist, ['one', 'two'])
+        self.assertDictEqual(res, expected)
+
+    def test_output_lines_xml(self):
+        fname = 'test.xml'
+        try:
+            os.unlink(fname)
+        except:
+            pass
+        try:
+            expected = {'list': {'line': {'line00001': {'file': {'one': {'file00001': 'first.file'},
+                                                                 'two': {'file00002': 'second.file'}}},
+                                          'id': '456',
+                                          'line00002': {'file': {'one': {'file00003': 'third.file'},
+                                                                 'two': {'file00004': 'fourth.file'}}
+                                                        }}}}
+            iqu.output_lines(fname, expected, 'xml')
+
+            lines = open(fname, 'r').readlines()
+            items = {'file00001': False,
+                     'third.file': False}
+            for line in lines:
+                for key in items.keys():
+                    if key in line:
+                        items[key] = True
+            for key, val in items.items():
+                self.assertTrue(val)
+
+        finally:
+            try:
+                os.unlink(fname)
+            except:
+                pass
+
+
+    def test_output_lines_wcl(self):
+        fname = 'test.wcl'
+        try:
+            os.unlink(fname)
+        except:
+            pass
+        try:
+            expected = {'list': {'line': {'line00001': {'file': {'one': {'file00001': 'first.file'},
+                                                                 'two': {'file00002': 'second.file'}}},
+                                          'id': '456',
+                                          'line00002': {'file': {'one': {'file00003': 'third.file'},
+                                                                 'two': {'file00004': 'fourth.file'}}
+                                                        }}}}
+            iqu.output_lines(fname, expected, 'wcl')
+            w = wcl.WCL()
+            with open(fname, 'r') as infh:
+                w.read(infh, fname)
+            d = wcl_to_dict(w)
+            self.assertDictEqual(expected, d)
+        finally:
+            try:
+                os.unlink(fname)
+            except:
+                pass
+
+    def test_output_lines_json(self):
+        fname = 'test.json'
+        try:
+            os.unlink(fname)
+        except:
+            pass
+        try:
+            expected = {'list': {'line': {'line00001': {'file': {'one': {'file00001': 'first.file'},
+                                                                 'two': {'file00002': 'second.file'}}},
+                                          'id': '456',
+                                          'line00002': {'file': {'one': {'file00003': 'third.file'},
+                                                                 'two': {'file00004': 'fourth.file'}}
+                                                        }}}}
+            iqu.output_lines(fname, expected, 'json')
+            with open(fname) as jfile:
+                d = json.load(jfile)
+            self.assertDictEqual(d, expected)
+        finally:
+            try:
+                os.unlink(fname)
+            except:
+                pass
+
+
+
+    def test_output_lines_error(self):
+        expected = {'list': {'line': {'line00001': {'file': {'one': {'file00001': 'first.file'},
+                                                             'two': {'file00002': 'second.file'}}},
+                                      'line00002': {'file': {'one': {'file00003': 'third.file'},
+                                                             'two': {'file00004': 'fourth.file'}}}}}}
+        self.assertRaises(Exception, iqu.output_lines, 'blah.xml', expected, 'txt')
 
 
 if __name__ == '__main__':
