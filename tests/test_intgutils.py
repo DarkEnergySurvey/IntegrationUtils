@@ -795,5 +795,21 @@ port    =   0
         self.assertTrue('bname.other' in res)
         self.assertTrue('tname,bname' in res)
 
+        a = {'tname': {'join':'fld=5,other=bye'}}
+        self.assertRaises(ValueError, iqu.create_query_string, self.dbh, a)
+
+        a = {'tname': {'select_fields': 'fld',
+                       'join':'other.fld=5,other=bye'}}
+        res = iqu.create_query_string(self.dbh, a)
+        self.assertTrue('tname.fld' in res)
+        self.assertTrue('other.fld=' in res)
+
+        a = {'tname': {'select_fields': 'fld',
+                       'join':'other'}}
+        res = iqu.create_query_string(self.dbh, a)
+        self.assertTrue('tname.fld' in res)
+        self.assertFalse('other' in res)
+
+
 if __name__ == '__main__':
     unittest.main()

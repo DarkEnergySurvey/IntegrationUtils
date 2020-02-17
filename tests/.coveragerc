@@ -12,4 +12,3 @@ exclude_lines =
     raise NotImplementedError
     if 0:
     if __name__ == .__main__.:
-    elif '*' in value
