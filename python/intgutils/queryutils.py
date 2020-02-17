@@ -49,8 +49,7 @@ def make_where_clause(dbh, key, value):
         if nots:
             condition += ' AND ' + ' AND '.join(nots)
 
-    elif '*' in value or '^' in value or '$' in value or \
-         '[' in value or ']' in value or '&' in value:
+    elif '*' in value or '^' in value or '$' in value or '[' in value or ']' in value or '&' in value: # pragma: no cover
         condition = dbh.get_regexp_clause(key, value)
     elif '%' in value and '!' not in value:
         condition = f'{key} like {dbh.quote(value)}'
@@ -99,7 +98,8 @@ def create_query_string(dbh, qdict):
             else:
                 for field in table_select_fields:
                     selectfields.append(f"{tablename}.{field}")
-
+        else:
+            raise ValueError("Query dictionary must have 'select_fields' specified")
         if 'key_vals' in tabledict:
             for key, val in tabledict['key_vals'].items():
                 whereclauses.append(make_where_clause(dbh, f'{tablename}.{key}', val))
