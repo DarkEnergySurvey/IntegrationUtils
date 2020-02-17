@@ -693,7 +693,7 @@ port    =   0
     @classmethod
     def tearDownClass(cls):
         os.unlink(cls.sfile)
-        MockConnection.destroy()
+        #MockConnection.destroy()
 
     def test_make_where_clause(self):
         key = 'hello'
@@ -809,6 +809,52 @@ port    =   0
         res = iqu.create_query_string(self.dbh, a)
         self.assertTrue('tname.fld' in res)
         self.assertFalse('other' in res)
+
+    def test_gen_file_query(self):
+        qry = {'catalog': {'select_fields': 'filename',
+                           'key_vals': {'band': 'g'}}}
+        with capture_output() as (out, _):
+            res = iqu.gen_file_query(self.dbh, qry)
+            self.assertEqual(1394, len(res))
+            output = out.getvalue().strip()
+            self.assertTrue('sql =' in output)
+
+        with capture_output() as (out, _):
+            res = iqu.gen_file_query(self.dbh, qry, 2)
+            self.assertEqual(1394, len(res))
+            output = out.getvalue().strip()
+            self.assertFalse('sql =' in output)
+
+    def test_gen_file_list(self):
+        qry = {'catalog': {'select_fields': 'filename',
+                           'key_vals': {'band': 'g'}}}
+        with capture_output() as (out, _):
+            res = iqu.gen_file_list(self.dbh, qry)
+            self.assertEqual(1394, len(res))
+            output = out.getvalue().strip()
+            self.assertTrue('gen_file_list' in output)
+
+        with capture_output() as (out, _):
+            res = iqu.gen_file_list(self.dbh, qry, 2)
+            self.assertEqual(1394, len(res))
+            output = out.getvalue().strip()
+            self.assertFalse('gen_file_list' in output)
+
+    def test_convert_single_files_to_lines(self):
+        flist = {'file1': 'first.file',
+                 'file2': 'second.file',
+                 'file3': 'third.file'}
+        expected = {'list': {'line': {'line00001': {'file': {'file00001': 'first.file'}},
+                                      'line00002': {'file': {'file00002': 'second.file'}},
+                                      'line00003': {'file': {'file00003': 'third.file'}}}}}
+
+        res = iqu.convert_single_files_to_lines(flist)
+        self.assertDictEqual(res, expected)
+
+        expected = {'list': {'line': {'line00001': {'file': {'file00001': {'file1': 'first.file'}}}}}}
+        flist = {'file1': 'first.file'}
+        res = iqu.convert_single_files_to_lines(flist)
+        self.assertDictEqual(res, expected)
 
 
 if __name__ == '__main__':
