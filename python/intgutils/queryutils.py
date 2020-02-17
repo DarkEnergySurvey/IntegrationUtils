@@ -153,7 +153,7 @@ def gen_file_list(dbh, query, debug=3):
 #    query['location']['select_fields'] = 'all'
 #    query['location']['hash_key'] = 'id'
 
-    if debug:
+    if debug >= 3:
         print("gen_file_list: calling gen_file_query with", query)
 
     results = gen_file_query(dbh, query)
