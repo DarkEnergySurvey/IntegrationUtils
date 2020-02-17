@@ -85,7 +85,7 @@ def create_query_string(dbh, qdict):
     fromtables = []
     whereclauses = []
 
-    print(qdict)
+    #print(qdict)
 
     for tablename, tabledict in qdict.items():
         fromtables.append(tablename)
@@ -118,7 +118,9 @@ def create_query_string(dbh, qdict):
                     val = pat_match.group(3).strip()
                     whereclauses.append(f'{jtable}.{key}={val}')
 
-    query = f"SELECT {','.join(selectfields)} FROM {','.join(fromtables)} WHERE {' AND '.join(whereclauses)}"
+    query = f"SELECT {','.join(selectfields)} FROM {','.join(fromtables)}"
+    if whereclauses:
+        query += f" WHERE {' AND '.join(whereclauses)}"
     return query
 
 
