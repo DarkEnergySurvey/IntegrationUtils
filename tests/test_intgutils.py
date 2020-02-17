@@ -703,21 +703,13 @@ port    =   0
         self.assertTrue(val in res)
         self.assertTrue('=' in res)
 
-        val = 'NuLl'
-        res = iqu.make_where_clause(self.dbh, key, val)
-        self.assertTrue('is NULL' in res)
-
+    def test_make_where_clause_like(self):
+        key = 'hello'
         val = '%bye'
         res = iqu.make_where_clause(self.dbh, key, val)
         self.assertTrue(key in res)
         self.assertTrue(val in res)
         self.assertTrue('like' in res)
-
-        val = '!bye'
-        res = iqu.make_where_clause(self.dbh, key, val)
-        self.assertTrue(key in res)
-        self.assertTrue(val.replace('!', '') in res)
-        self.assertTrue('!=' in res)
 
         val = '\\%bye'
         res = iqu.make_where_clause(self.dbh, key, val)
@@ -731,16 +723,77 @@ port    =   0
         res = iqu.make_where_clause(self.dbh, key, val)
         self.assertTrue('not like' in res)
 
+    def test_where_clause_not(self):
+        key = 'hello'
+        val = '!bye'
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue(key in res)
+        self.assertTrue(val.replace('!', '') in res)
+        self.assertTrue('!=' in res)
+
+
+    def test_make_where_clause_null(self):
+        key = 'hello'
         val = "!nUll"
         res = iqu.make_where_clause(self.dbh, key, val)
         self.assertTrue('is not NULL' in res)
 
-        val = ['bye', 'up', '%good', '!bad']
+        val = 'NuLl'
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue('is NULL' in res)
+
+    def test_where_clause_list(self):
+        key = 'hello'
+        val = ['bye,up,%good,!bad']
         res = iqu.make_where_clause(self.dbh, key, val)
         self.assertTrue(' IN ' in res)
         self.assertTrue(' OR ' in res)
         self.assertTrue(' AND ' in res)
         self.assertTrue('!=' in res)
+
+        val = ['%bye']
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue(key in res)
+        self.assertTrue(val[0] in res)
+        self.assertTrue('like' in res)
+
+        val = ['!bye']
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue(key in res)
+        self.assertTrue(val[0].replace('!', '') in res)
+        self.assertTrue('!=' in res)
+
+        val = ['bye']
+        res = iqu.make_where_clause(self.dbh, key, val)
+        self.assertTrue(key in res)
+        self.assertTrue(val[0] in res)
+
+    def test_create_query_string(self):
+        a = {'tname': {'select_fields': ['fld'],
+                       'key_vals': {'b':'5'}}}
+        res = iqu.create_query_string(self.dbh, a)
+        self.assertTrue('tname.fld' in res)
+        self.assertTrue('tname.b =' in res)
+
+        a = {'tname': {'select_fields': 'all'}}
+        res = iqu.create_query_string(self.dbh, a)
+        self.assertTrue('tname.*' in res)
+        self.assertFalse('WHERE' in res)
+
+        a = {'tname': {'select_fields': 'fld',
+                       'join':'fld=5,other=bye'}}
+        res = iqu.create_query_string(self.dbh, a)
+        self.assertTrue('tname.fld' in res)
+        self.assertTrue('tname.other=bye' in res)
+
+        a = {'tname': {'select_fields': 'fld',
+                       'key_vals':{'fld':'5'}},
+             'bname': {'select_fields': 'other'}
+             }
+        res = iqu.create_query_string(self.dbh, a)
+        self.assertTrue('tname.fld' in res)
+        self.assertTrue('bname.other' in res)
+        self.assertTrue('tname,bname' in res)
 
 if __name__ == '__main__':
     unittest.main()
