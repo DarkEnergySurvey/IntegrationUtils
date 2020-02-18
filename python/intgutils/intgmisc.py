@@ -244,7 +244,7 @@ def get_file_fullnames(sect, filewcl, fullwcl):
 
 
 ######################################################################
-def get_fullnames(modwcl, fullwcl, exsect=None):
+def get_fullnames(modwcl, fullwcl, exsect=None, get_inputs=True, get_outputs=True):
     """ Return dictionaries of input and output fullnames by section """
 
     exec_sectnames = []
@@ -258,46 +258,49 @@ def get_fullnames(modwcl, fullwcl, exsect=None):
     # get output file names first so can exclude intermediate files from inputs
     outputs = {}
     allouts = set()
-    for _exsect in sorted(exec_sectnames):
-        exwcl = modwcl[_exsect]
-        if intgdefs.IW_OUTPUTS in exwcl:
-            for sect in miscutils.fwsplit(exwcl[intgdefs.IW_OUTPUTS], ','):
-                sectkeys = sect.split('.')
-                outset = None
-                if sectkeys[0] == intgdefs.IW_FILE_SECT:
-                    outset = get_file_fullnames(sect, modwcl[intgdefs.IW_FILE_SECT], fullwcl)
-                elif sectkeys[0] == intgdefs.IW_LIST_SECT:
-                    _, outset = get_list_fullnames(sect, modwcl)
-                else:
-                    print("exwcl[intgdefs.IW_OUTPUTS]=", exwcl[intgdefs.IW_OUTPUTS])
-                    print("sect = ", sect)
-                    print("sectkeys = ", sectkeys)
-                    raise KeyError(f"Unknown data section {sectkeys[0]}")
-                outputs[sect] = outset
-                allouts.union(outset)
+    if get_outputs:
+        for _exsect in sorted(exec_sectnames):
+            exwcl = modwcl[_exsect]
+            if intgdefs.IW_OUTPUTS in exwcl:
+                for sect in miscutils.fwsplit(exwcl[intgdefs.IW_OUTPUTS], ','):
+                    sectkeys = sect.split('.')
+                    outset = None
+                    if sectkeys[0] == intgdefs.IW_FILE_SECT:
+                        outset = get_file_fullnames(sect, modwcl[intgdefs.IW_FILE_SECT], fullwcl)
+                    elif sectkeys[0] == intgdefs.IW_LIST_SECT:
+                        print('   ----   ' + sect)
+                        _, outset = get_list_fullnames(sect, modwcl)
+                    else:
+                        print("exwcl[intgdefs.IW_OUTPUTS]=", exwcl[intgdefs.IW_OUTPUTS])
+                        print("sect = ", sect)
+                        print("sectkeys = ", sectkeys)
+                        raise KeyError(f"Unknown data section {sectkeys[0]}")
+                    outputs[sect] = outset
+                    allouts.union(outset)
 
     inputs = {}
-    for _exsect in exec_sectnames:
-        exwcl = modwcl[_exsect]
-        if intgdefs.IW_INPUTS in exwcl:
-            for sect in miscutils.fwsplit(exwcl[intgdefs.IW_INPUTS], ','):
-                sectkeys = sect.split('.')
-                inset = None
-                if sectkeys[0] == intgdefs.IW_FILE_SECT:
-                    inset = get_file_fullnames(sect, modwcl[intgdefs.IW_FILE_SECT], fullwcl)
-                elif sectkeys[0] == intgdefs.IW_LIST_SECT:
-                    _, inset = get_list_fullnames(sect, modwcl)
-                    #inset.add(listname)
-                else:
-                    print("exwcl[intgdefs.IW_INPUTS]=", exwcl[intgdefs.IW_INPUTS])
-                    print("sect = ", sect)
-                    print("sectkeys = ", sectkeys)
-                    raise KeyError(f"Unknown data section {sectkeys[0]}")
+    if get_inputs:
+        for _exsect in exec_sectnames:
+            exwcl = modwcl[_exsect]
+            if intgdefs.IW_INPUTS in exwcl:
+                for sect in miscutils.fwsplit(exwcl[intgdefs.IW_INPUTS], ','):
+                    sectkeys = sect.split('.')
+                    inset = None
+                    if sectkeys[0] == intgdefs.IW_FILE_SECT:
+                        inset = get_file_fullnames(sect, modwcl[intgdefs.IW_FILE_SECT], fullwcl)
+                    elif sectkeys[0] == intgdefs.IW_LIST_SECT:
+                        _, inset = get_list_fullnames(sect, modwcl)
+                        #inset.add(listname)
+                    else:
+                        print("exwcl[intgdefs.IW_INPUTS]=", exwcl[intgdefs.IW_INPUTS])
+                        print("sect = ", sect)
+                        print("sectkeys = ", sectkeys)
+                        raise KeyError(f"Unknown data section {sectkeys[0]}")
 
-                # exclude intermediate files from inputs
-                if inset is not None:
-                    inset = inset - allouts
-                    inputs[sect] = inset
+                    # exclude intermediate files from inputs
+                    if inset is not None:
+                        inset = inset - allouts
+                        inputs[sect] = inset
 
     return inputs, outputs
 

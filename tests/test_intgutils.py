@@ -5,6 +5,7 @@ import os
 import stat
 import sys
 import copy
+import time
 from contextlib import contextmanager
 from io import StringIO
 from mock import patch
@@ -15,6 +16,7 @@ import intgutils.replace_funcs as rf
 import intgutils.intgdefs as intgdefs
 import intgutils.wcl as wcl
 import intgutils.queryutils as iqu
+import intgutils.basic_wrapper as bwr
 
 import despydmdb.desdmdbi as dmdbi
 from MockDBI import MockConnection
@@ -971,6 +973,218 @@ port    =   0
                                       'line00002': {'file': {'one': {'file00003': 'third.file'},
                                                              'two': {'file00004': 'fourth.file'}}}}}}
         self.assertRaises(Exception, iqu.output_lines, 'blah.xml', expected, 'txt')
+
+class TestBasicWrapper(unittest.TestCase):
+    wcl_file = os.path.join(ROOT, 'wcl/wrappertest.wcl')
+
+    def test_init(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        self.assertTrue('exec_1' in wr.inputwcl.keys())
+
+    def test_determine_status(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        with capture_output() as (out, _):
+            wr.run_wrapper()
+            output = out.getvalue().strip()
+            self.assertTrue('does not exist' in output)
+        self.assertEqual(wr.determine_status(), 1)
+
+    def test_start_exec_task(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        name = 'myexec'
+        for ekey, iw_exec in sorted(execs.items()):
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            self.assertFalse(name in wr.curr_exec['task_info'])
+            wr.start_exec_task(name)
+            self.assertTrue(name in wr.curr_exec['task_info'])
+            self.assertTrue('start_time' in wr.curr_exec['task_info'][name])
+            self.assertTrue(isinstance(wr.curr_exec['task_info'][name]['start_time'], float))
+
+    def test_end_exec_task(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        name = 'myexec'
+        for ekey, iw_exec in sorted(execs.items()):
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            self.assertFalse(name in wr.curr_exec['task_info'])
+            wr.start_exec_task(name)
+            self.assertFalse('status' in wr.curr_exec['task_info'][name])
+            time.sleep(0.2)
+            wr.end_exec_task(2)
+            self.assertTrue('status' in wr.curr_exec['task_info'][name])
+            self.assertEqual(wr.curr_exec['task_info'][name]['status'], 2)
+            self.assertTrue(wr.curr_exec['task_info'][name]['walltime'] >= 0.2)
+
+    def test_end_all_tasks(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        names = ['myexec','anotherexec']
+        for ekey, iw_exec in sorted(execs.items()):
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            self.assertFalse(names[0] in wr.curr_exec['task_info'])
+            wr.start_exec_task(names[0])
+            time.sleep(0.2)
+
+            self.assertFalse(names[1] in wr.curr_exec['task_info'])
+            wr.start_exec_task(names[1])
+            self.assertTrue(names[1] in wr.curr_exec['task_info'])
+            self.assertTrue(names[0] in wr.curr_exec['task_info'])
+            time.sleep(0.2)
+
+            wr.end_all_tasks(18)
+            for i, n in enumerate(names):
+                self.assertTrue('status' in wr.curr_exec['task_info'][n])
+                self.assertEqual(wr.curr_exec['task_info'][n]['status'], 18)
+                self.assertTrue(wr.curr_exec['task_info'][n]['walltime'] >= 0.2 * i)
+
+    def test_transform_inputs(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        names = ['myexec','anotherexec']
+        for ekey, iw_exec in sorted(execs.items()):
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            self.assertFalse('transform_inputs' in wr.curr_exec['task_info'])
+            wr.transform_inputs(None)
+            self.assertTrue('transform_inputs' in wr.curr_exec['task_info'])
+            self.assertEqual(wr.curr_exec['task_info']['transform_inputs']['status'], 0)
+
+    def test_check_inputs(self):
+        touch_dir = 'mangle_tiles'
+        touchfile = 'mangle_tiles/Y3A1v1_tolys_10s.122497.pol'
+        try:
+            os.unlink(touchfile)
+        except:
+            pass
+        try:
+            os.rmdir(touch_dir)
+        except:
+            pass
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            wr.outputwcl['wrapper']['start_time'] = time.time()
+            execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+            ekey = list(execs.keys())[0]
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            self.assertFalse('check_inputs' in wr.curr_exec['task_info'])
+            with capture_output() as (out, _):
+                self.assertRaises(SystemExit, wr.check_inputs, ekey)
+                output = out.getvalue().strip()
+                self.assertTrue('does not exist' in output)
+            os.mkdir(touch_dir)
+            open(touchfile, 'w').write("\n")
+
+        finally:
+            try:
+                os.unlink(touchfile)
+            except:
+                pass
+            try:
+                os.rmdir(touch_dir)
+            except:
+                pass
+
+    def test_check_command_line(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        ekey = list(execs.keys())[0]
+        iw_exec = list(execs.values())[0]
+        ow_exec = {'task_info': {}}
+        wr.outputwcl[ekey] = ow_exec
+        wr.curr_exec = ow_exec
+        wr.check_command_line(ekey, iw_exec)
+        self.assertEqual(ow_exec['task_info']['check_command_line']['status'], 0)
+
+    def test_save_exec_version_none(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        ekey = list(execs.keys())[0]
+        iw_exec = list(execs.values())[0]
+        ow_exec = {'task_info': {}}
+        wr.outputwcl[ekey] = ow_exec
+        wr.curr_exec = ow_exec
+        with capture_output() as (out, _):
+            wr.save_exec_version(iw_exec)
+            output = out.getvalue().strip()
+            self.assertTrue('not find version' in output)
+
+    def test_save_exec_version_partial(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        ekey = list(execs.keys())[0]
+        iw_exec = list(execs.values())[0]
+        ow_exec = {'task_info': {}}
+        wr.outputwcl[ekey] = ow_exec
+        wr.curr_exec = ow_exec
+        iw_exec['execname'] = '/usr/bin/env echo'
+        iw_exec['version_flag'] = '--version'
+        with capture_output() as (out, _):
+            wr.save_exec_version(iw_exec)
+            output = out.getvalue().strip()
+            self.assertTrue('not find version' in output)
+
+    def test_save_exec_version_working(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        ekey = list(execs.keys())[0]
+        iw_exec = list(execs.values())[0]
+        ow_exec = {'task_info': {}}
+        wr.outputwcl[ekey] = ow_exec
+        wr.curr_exec = ow_exec
+        iw_exec['execname'] = '/usr/bin/env echo'
+        iw_exec['version_flag'] = '--version'
+        iw_exec['version_pattern'] = 'echo\s+\(.*\)\s+(.*)'
+        self.assertFalse('version' in wr.curr_exec)
+        wr.save_exec_version(iw_exec)
+        self.assertTrue('version' in wr.curr_exec)
+
+    def test_save_exec_version_errors(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        ekey = list(execs.keys())[0]
+        iw_exec = list(execs.values())[0]
+        ow_exec = {'task_info': {}}
+        wr.outputwcl[ekey] = ow_exec
+        wr.curr_exec = ow_exec
+        iw_exec['execname'] = '/usr/bin/env echo'
+        iw_exec['version_flag'] = '--version'
+        iw_exec['version_pattern'] = 'echo\s+\(.*\)\s+(.*)'
+        with patch('intgutils.basic_wrapper.subprocess.Popen', side_effect=OSError()):
+            with capture_output() as (out, _):
+                self.assertRaises(OSError, wr.save_exec_version, iw_exec)
+                output = out.getvalue().strip()
+                self.assertTrue('misspelled' in output)
+
+        with patch('intgutils.basic_wrapper.subprocess.Popen', returncode=1):
+            with capture_output() as (out, _):
+                wr.save_exec_version(iw_exec)
+                output = out.getvalue().strip()
+                self.assertTrue('problem when running' in output)
+
+        iw_exec['version_pattern'] = 'bad pattern'
+        with capture_output() as (out, _):
+            wr.save_exec_version(iw_exec)
+            output = out.getvalue().strip()
+            self.assertTrue('find version for' in output)
 
 
 if __name__ == '__main__':

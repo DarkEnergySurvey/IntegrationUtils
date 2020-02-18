@@ -211,7 +211,7 @@ class BasicWrapper:
                 print(f"Unexpected error: {exc_type} - {exc_value}")
                 print(f"cmd> {cmd}")
                 print(f"Probably could not find {shlex.split(cmd)[0]} in path")
-                print("Check for mispelled execname in submit wcl or")
+                print("Check for misspelled execname in submit wcl or")
                 print("    make sure that the corresponding eups package is in the metapackage ")
                 print("    and it sets up the path correctly")
                 raise
@@ -233,7 +233,7 @@ class BasicWrapper:
                     if vmatch:
                         ver = vmatch.group(1)
                     else:
-                        if miscutils.fwdebug_check(1, 'BASICWRAP_DEBUG'):
+                        if miscutils.fwdebug_check(0, 'BASICWRAP_DEBUG'):
                             miscutils.fwdebug_print(f"re.search didn't find version for exec {execname}",
                                                     WRAPPER_OUTPUT_PREFIX)
                         if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
@@ -368,8 +368,7 @@ class BasicWrapper:
         self.start_exec_task('check_inputs')
 
         existfiles = {}
-
-        ins, _ = intgmisc.get_fullnames(self.inputwcl, self.inputwcl, ekey)
+        ins, _ = intgmisc.get_fullnames(self.inputwcl, self.inputwcl, ekey, get_outputs=False)
         for sect in ins:
             exists, missing = intgmisc.check_files(ins[sect])
             existfiles[sect] = exists
