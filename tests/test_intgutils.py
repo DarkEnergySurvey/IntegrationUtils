@@ -1180,12 +1180,14 @@ class TestBasicWrapper(unittest.TestCase):
         iw_exec['version_flag'] = '--version'
         iw_exec['version_pattern'] = 'echo\s+\(.*\)\s+(.*)'
 
+        print("B")
         with patch('intgutils.basic_wrapper.re.search', side_effect=Exception()):
-            with capture_output() as (out, _):
-                self.assertRaises(Exception, wr.save_exec_version, iw_exec)
-                output = out.getvalue().strip()
+            #with capture_output() as (out, _):
+            self.assertRaises(Exception, wr.save_exec_version, iw_exec)
+            #output = out.getvalue().strip()
                 #self.assertTrue('from re.match' in output)
 
+        print("A")
         with patch('intgutils.basic_wrapper.subprocess.Popen', side_effect=OSError()):
             with capture_output() as (out, _):
                 self.assertRaises(OSError, wr.save_exec_version, iw_exec)
@@ -1284,6 +1286,22 @@ list/m/third.file,3.3
 """)
             wr.create_output_dirs(iw_exec)
             self.assertTrue(os.path.exists('list/m'))
+
+            iw_exec['was_generated_by'] = 'filespecs.polygons,list.out.red_immask_test,other.stuff'
+            wr.create_output_dirs(iw_exec)
+
+            wr.inputwcl['filespecs']['polygons']['fullname'] = "$RNMLST{JUNK}"
+            self.assertRaises(ValueError, wr.create_output_dirs, iw_exec)
+
+            iw_exec['was_generated_by'] = 'filespecs.polygons2,list.out.red_immask_test'
+            wr.create_output_dirs(iw_exec)
+
+            del wr.inputwcl['filespecs']['polygons']['fullname']
+            wr.create_output_dirs(iw_exec)
+
+
+            del iw_exec['was_generated_by']
+            wr.create_output_dirs(iw_exec)
         finally:
             try:
                 os.unlink(touchfile)
