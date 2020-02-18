@@ -176,9 +176,9 @@ class BasicWrapper:
                 miscutils.fwdebug_print(f"cmdlist = '{cmdlist}'", WRAPPER_OUTPUT_PREFIX)
             cmdstr = ' '.join(cmdlist)
         else:
-            print(f"Error: missing execname in wcl for exec #{execnum:d}")
+            print(f"Error: missing execname in wcl for exec {execnum}")
             print(f"exec wcl = {exwcl}")
-            raise KeyError(f'Missing execname in wcl for exec #{execnum:d}')
+            raise KeyError(f'Missing execname in wcl for exec {execnum}')
 
         self.curr_exec['cmdline'] = cmdstr
         self.end_exec_task(0)
@@ -281,7 +281,6 @@ class BasicWrapper:
                                 miscutils.coremakedirs(outdir)
                 elif sectkeys[0] == intgdefs.IW_LIST_SECT:
                     (_, _, filesect) = sect.split('.')
-
                     ldict = self.inputwcl[intgdefs.IW_LIST_SECT][sectkeys[1]]
 
                     # check list itself exists
@@ -304,7 +303,6 @@ class BasicWrapper:
                     fullnames = intgmisc.read_fullnames_from_listfile(listname, listfmt, ldict['columns'])
                     if miscutils.fwdebug_check(3, 'BASICWRAP_DEBUG'):
                         miscutils.fwdebug_print(f"\tINFO: fullnames={fullnames}", WRAPPER_OUTPUT_PREFIX)
-
                     for fname in fullnames[filesect]:
                         outdir = os.path.dirname(fname)
                         miscutils.coremakedirs(outdir)
