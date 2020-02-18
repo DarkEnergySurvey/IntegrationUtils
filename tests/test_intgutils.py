@@ -2,6 +2,7 @@
 
 import unittest
 import os
+import shutil
 import stat
 import sys
 import copy
@@ -981,7 +982,8 @@ class TestBasicWrapper(unittest.TestCase):
         wr = bwr.BasicWrapper(self.wcl_file)
         self.assertTrue('exec_1' in wr.inputwcl.keys())
 
-    def test_determine_status(self):
+    @patch('intgutils.basic_wrapper.os.system')
+    def test_determine_status(self, ptch):
         wr = bwr.BasicWrapper(self.wcl_file)
         with capture_output() as (out, _):
             wr.run_wrapper()
@@ -1061,17 +1063,22 @@ class TestBasicWrapper(unittest.TestCase):
             self.assertTrue('transform_inputs' in wr.curr_exec['task_info'])
             self.assertEqual(wr.curr_exec['task_info']['transform_inputs']['status'], 0)
 
-    def test_check_inputs(self):
-        touch_dir = 'mangle_tiles'
-        touchfile = 'mangle_tiles/Y3A1v1_tolys_10s.122497.pol'
-        try:
-            os.unlink(touchfile)
-        except:
-            pass
-        try:
-            os.rmdir(touch_dir)
-        except:
-            pass
+    @patch('intgutils.basic_wrapper.os.system')
+    def test_check_inputs(self, ptch):
+        touch_dirs = ['mangle_tiles', 'list','list/mangle']
+        touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
+                      'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
+                      'list/mangle/DES2157-5248_r15p03_g_mangle-out.list']
+        for fl in touchfiles:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        for dr in touch_dirs:
+            try:
+                shutil.rmtree(dr)
+            except:
+                pass
         try:
             wr = bwr.BasicWrapper(self.wcl_file)
             wr.outputwcl['wrapper']['start_time'] = time.time()
@@ -1085,18 +1092,22 @@ class TestBasicWrapper(unittest.TestCase):
                 self.assertRaises(SystemExit, wr.check_inputs, ekey)
                 output = out.getvalue().strip()
                 self.assertTrue('does not exist' in output)
-            os.mkdir(touch_dir)
-            open(touchfile, 'w').write("\n")
-
+            for dr in touch_dirs:
+                os.makedirs(dr)
+            for fl in touchfiles:
+                open(fl, 'w').write("\n")
+            wr.check_inputs(ekey)
         finally:
-            try:
-                os.unlink(touchfile)
-            except:
-                pass
-            try:
-                os.rmdir(touch_dir)
-            except:
-                pass
+            for fl in touchfiles:
+                try:
+                    os.unlink(fl)
+                except:
+                    pass
+            for dr in touch_dirs:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
 
     def test_check_command_line(self):
         wr = bwr.BasicWrapper(self.wcl_file)
@@ -1168,6 +1179,13 @@ class TestBasicWrapper(unittest.TestCase):
         iw_exec['execname'] = '/usr/bin/env echo'
         iw_exec['version_flag'] = '--version'
         iw_exec['version_pattern'] = 'echo\s+\(.*\)\s+(.*)'
+
+        with patch('intgutils.basic_wrapper.re.search', side_effect=Exception()):
+            with capture_output() as (out, _):
+                self.assertRaises(Exception, wr.save_exec_version, iw_exec)
+                output = out.getvalue().strip()
+                self.assertTrue('Exception from re.match' in output)
+
         with patch('intgutils.basic_wrapper.subprocess.Popen', side_effect=OSError()):
             with capture_output() as (out, _):
                 self.assertRaises(OSError, wr.save_exec_version, iw_exec)
@@ -1185,6 +1203,100 @@ class TestBasicWrapper(unittest.TestCase):
             wr.save_exec_version(iw_exec)
             output = out.getvalue().strip()
             self.assertTrue('find version for' in output)
+
+    def test_create_command_line(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        ekey = list(execs.keys())[0]
+        iw_exec = list(execs.values())[0]
+        ow_exec = {'task_info': {}}
+        wr.outputwcl[ekey] = ow_exec
+        wr.curr_exec = ow_exec
+        self.assertFalse('cmdline' in wr.curr_exec.keys())
+        wr.create_command_line(ekey, iw_exec)
+        self.assertTrue('cmdline' in wr.curr_exec.keys())
+        self.assertTrue('--band g' in wr.curr_exec['cmdline'])
+        self.assertTrue('--isTest  --' in wr.curr_exec['cmdline'])
+
+        self.assertTrue('9999999999' not in wr.curr_exec['cmdline'])
+        self.assertFalse(' hello ' in wr.curr_exec['cmdline'])
+        iw_exec['cmdline']['_9999999999'] = 'hello'
+        wr.create_command_line(ekey, iw_exec)
+        self.assertTrue('9999999999' not in wr.curr_exec['cmdline'])
+        self.assertFalse(' hello ' in wr.curr_exec['cmdline'])
+
+
+        del iw_exec['cmd_hyphen']
+        wr.create_command_line(ekey, iw_exec)
+        self.assertTrue('cmdline' in wr.curr_exec.keys())
+        self.assertTrue(' -band g' in wr.curr_exec['cmdline'])
+
+        self.assertFalse(' bye ' in wr.curr_exec['cmdline'])
+        iw_exec['cmdline']['_f'] = 'hello'
+        self.assertRaises(ValueError, wr.create_command_line, ekey, iw_exec)
+
+        del iw_exec['cmdline']
+        wr.create_command_line(ekey, iw_exec)
+        self.assertTrue('cmdline' in wr.curr_exec.keys())
+        self.assertEqual(iw_exec['execname'], wr.curr_exec['cmdline'])
+
+
+        del iw_exec['execname']
+
+        with capture_output() as (out, _):
+            self.assertRaises(KeyError, wr.create_command_line, ekey, iw_exec)
+            output = out.getvalue().strip()
+            self.assertTrue('missing execname' in output)
+
+    def test_create_output_dirs(self):
+        touch_dir = 'list/mangle'
+        touchfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        try:
+            os.unlink(touchfile)
+        except:
+            pass
+        try:
+            shutil.rmtree('list')
+        except:
+            pass
+        try:
+            shutil.rmtree('mangle')
+        except:
+            pass
+
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            wr.outputwcl['wrapper']['start_time'] = time.time()
+            execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+            ekey = list(execs.keys())[0]
+            iw_exec = list(execs.values())[0]
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            self.assertRaises(OSError, wr.create_output_dirs, iw_exec)
+
+            self.assertFalse(os.path.exists('list/m'))
+            os.makedirs(touch_dir)
+            open(touchfile, 'w').write("""list/m/first.file,1.1
+list/m/second.file,2.2
+list/m/third.file,3.3
+""")
+            wr.create_output_dirs(iw_exec)
+            self.assertTrue(os.path.exists('list/m'))
+        finally:
+            try:
+                os.unlink(touchfile)
+            except:
+                pass
+            try:
+                shutil.rmtree('list')
+            except:
+                pass
+            try:
+                shutil.rmtree('mangle')
+            except:
+                pass
 
 
 if __name__ == '__main__':
