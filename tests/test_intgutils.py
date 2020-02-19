@@ -1289,6 +1289,14 @@ list/m/third.file,3.3
             wr.create_output_dirs(iw_exec)
             self.assertTrue(os.path.exists('list/m'))
 
+            del wr.inputwcl['filespecs']['polygons']['fullname']
+            wr.create_output_dirs(iw_exec)
+            self.assertEqual(wr.curr_exec['task_info']['create_output_dirs']['status'], 0)
+
+            del wr.inputwcl['list']['out']['format']
+            wr.create_output_dirs(iw_exec)
+            self.assertEqual(wr.curr_exec['task_info']['create_output_dirs']['status'], 0)
+
             iw_exec['was_generated_by'] = 'filespecs.polygons,list.out.red_immask_test,other.stuff'
             wr.create_output_dirs(iw_exec)
 
@@ -1517,6 +1525,7 @@ out/m/third.file,3.3
                 self.assertEqual(wr.curr_exec['task_info']['check_outputs']['status'], 1)
             outfiles['optional'] = 'true'
             wr.inputwcl['filespecs']['red_immask_test'] = outfiles
+            wr.inputwcl['filespecs']['polygons']['optional'] = 'true'
             res = wr.check_outputs(ekey, 0)
             self.assertEqual(wr.curr_exec['task_info']['check_outputs']['status'], 0)
             expected = {'filespecs.polygons': ['mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
@@ -1547,7 +1556,7 @@ out/m/third.file,3.3
             os.unlink(listfile)
         except:
             pass
-        touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g']
+        touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g', 'out']
         touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
                       'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
                       'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
@@ -1620,6 +1629,56 @@ out/m/third.file,3.3
                     shutil.rmtree(dr)
                 except:
                     pass
+
+    def test_get_optout(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        ekey = list(execs.keys())[0]
+        iw_exec = list(execs.values())[0]
+        ow_exec = {'task_info': {}}
+        wr.outputwcl[ekey] = ow_exec
+        wr.curr_exec = ow_exec
+
+        self.assertRaises(KeyError, wr.get_optout, 'bad.sect')
+
+    def test_write_outputwcl(self):
+        try:
+            shutil.rmtree('outputwcl')
+        except:
+            pass
+        try:
+            os.unlink('myoutput.wcl')
+        except:
+            pass
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            wr.outputwcl['wrapper']['start_time'] = time.time()
+            execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+            ekey = list(execs.keys())[0]
+            iw_exec = list(execs.values())[0]
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+
+            self.assertFalse(os.path.exists(wr.inputwcl['wrapper']['outputwcl']))
+
+            wr.write_outputwcl()
+            self.assertTrue(os.path.exists(wr.inputwcl['wrapper']['outputwcl']))
+
+            self.assertFalse(os.path.exists('myouput.wcl'))
+
+            wr.write_outputwcl('myoutput.wcl')
+            self.assertTrue(os.path.exists('myoutput.wcl'))
+        finally:
+            try:
+                os.unlink('myoutput.wcl')
+            except:
+                pass
+            try:
+                shutil.rmtree('outputwcl')
+            except:
+                pass
 
 
 if __name__ == '__main__':
