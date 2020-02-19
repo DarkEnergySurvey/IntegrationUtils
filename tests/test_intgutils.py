@@ -7,7 +7,9 @@ import stat
 import sys
 import copy
 import time
+import errno
 from contextlib import contextmanager
+from collections import OrderedDict
 from io import StringIO
 from mock import patch
 import json
@@ -1182,10 +1184,10 @@ class TestBasicWrapper(unittest.TestCase):
 
         print("B")
         with patch('intgutils.basic_wrapper.re.search', side_effect=Exception()):
-            #with capture_output() as (out, _):
-            self.assertRaises(Exception, wr.save_exec_version, iw_exec)
-            #output = out.getvalue().strip()
-                #self.assertTrue('from re.match' in output)
+            with capture_output() as (out, _):
+                self.assertRaises(Exception, wr.save_exec_version, iw_exec)
+                output = out.getvalue().strip()
+                self.assertTrue('re.match' in output)
 
         print("A")
         with patch('intgutils.basic_wrapper.subprocess.Popen', side_effect=OSError()):
@@ -1315,6 +1317,309 @@ list/m/third.file,3.3
                 shutil.rmtree('mangle')
             except:
                 pass
+
+    def test_run_exec(self):
+        touch_dir = 'list/mangle'
+        touchfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        try:
+            os.unlink(touchfile)
+        except:
+            pass
+        try:
+            shutil.rmtree('list')
+        except:
+            pass
+        try:
+            shutil.rmtree('mangle')
+        except:
+            pass
+
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            wr.outputwcl['wrapper']['start_time'] = time.time()
+            execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+            ekey = list(execs.keys())[0]
+            iw_exec = list(execs.values())[0]
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            os.makedirs(touch_dir)
+
+            open(touchfile, 'w').write("""list/m/first.file,1.1
+list/m/second.file,2.2
+list/m/third.file,3.3
+""")
+            wr.check_command_line(ekey, iw_exec)
+            wr.save_exec_version(iw_exec)
+            wr.create_command_line(ekey, iw_exec)
+            wr.create_output_dirs(iw_exec)
+            wr.run_exec()
+            self.assertEqual(wr.curr_exec['status'], 0)
+
+            with patch('intgutils.basic_wrapper.intgmisc.run_exec', side_effect=OSError):
+                self.assertRaises(OSError, wr.run_exec)
+
+            with patch('intgutils.basic_wrapper.intgmisc.run_exec', side_effect=OSError(errno.ENOENT, 'msg')):
+                self.assertRaises(OSError, wr.run_exec)
+
+        finally:
+            try:
+                os.unlink(touchfile)
+            except:
+                pass
+            try:
+                shutil.rmtree('list')
+            except:
+                pass
+            try:
+                shutil.rmtree('mangle')
+            except:
+                pass
+
+    def test_transform_outputs(self):
+        wr = bwr.BasicWrapper(self.wcl_file)
+        wr.outputwcl['wrapper']['start_time'] = time.time()
+        execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+        names = ['myexec','anotherexec']
+        for ekey, iw_exec in sorted(execs.items()):
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            self.assertFalse('transform_outputs' in wr.curr_exec['task_info'])
+            wr.transform_outputs(None)
+            self.assertTrue('transform_outputs' in wr.curr_exec['task_info'])
+            self.assertEqual(wr.curr_exec['task_info']['transform_outputs']['status'], 0)
+
+
+    def test_check_outputs_missing(self):
+        listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        try:
+            os.unlink(listfile)
+        except:
+            pass
+        touch_dirs = ['mangle_tiles', 'list','list/mangle']
+        touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
+                      'mangle_tiles/Y3A1v1_tiles_10s.122497.pol']
+        for fl in touchfiles:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        for dr in touch_dirs:
+            try:
+                shutil.rmtree(dr)
+            except:
+                pass
+        for dr in touch_dirs:
+            os.makedirs(dr)
+        for fl in touchfiles:
+            open(fl, 'w').write("\n")
+        try:
+            os.makedirs('list/mangle')
+        except:
+            pass
+        f = open(listfile, 'w')
+        f.write("""out/m/first.file,1.1
+out/m/second.file,2.2
+out/m/third.file,3.3
+""")
+        f.close()
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            wr.outputwcl['wrapper']['start_time'] = time.time()
+            execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+            ekey = list(execs.keys())[0]
+            iw_exec = list(execs.values())[0]
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            wr.create_output_dirs(iw_exec)
+            outfiles = OrderedDict()
+            outfiles['dirpath'] = 'out/m'
+            outfiles['fullname'] = "out/m/first.file,out/m/second.file,out/m/third.file"
+            outfiles['sectname'] = 'red_immask_test'
+
+            wr.inputwcl['filespecs']['red_immask_test'] = outfiles
+            with capture_output() as (out, _):
+                wr.check_outputs(ekey, 0)
+                output = out.getvalue().strip()
+                self.assertTrue("ERROR: Missing required output file" in output)
+                self.assertEqual(wr.curr_exec['task_info']['check_outputs']['status'], 1)
+        finally:
+            try:
+                os.unlink(listfile)
+            except:
+                pass
+            try:
+                shutil.rmtree('list')
+            except:
+                pass
+
+    def test_check_outputs_optional(self):
+        listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        try:
+            os.unlink(listfile)
+        except:
+            pass
+        touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g']
+        touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
+                      'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_maglims.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol']
+        for fl in touchfiles:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        for dr in touch_dirs:
+            try:
+                shutil.rmtree(dr)
+            except:
+                pass
+        for dr in touch_dirs:
+            os.makedirs(dr)
+        for fl in touchfiles:
+            open(fl, 'w').write("\n")
+        try:
+            os.makedirs('list/mangle')
+        except:
+            pass
+        f = open(listfile, 'w')
+        f.write("""out/m/first.file,1.1
+out/m/second.file,2.2
+out/m/third.file,3.3
+""")
+        f.close()
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            wr.outputwcl['wrapper']['start_time'] = time.time()
+            execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+            ekey = list(execs.keys())[0]
+            iw_exec = list(execs.values())[0]
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            wr.create_output_dirs(iw_exec)
+            outfiles = OrderedDict()
+            outfiles['dirpath'] = 'out/m'
+            outfiles['fullname'] = "out/m/first.file,out/m/second.file,out/m/third.file"
+            outfiles['sectname'] = 'red_immask_test'
+
+            wr.inputwcl['filespecs']['red_immask_test'] = outfiles
+            with capture_output() as (out, _):
+                wr.check_outputs(ekey, 0)
+                output = out.getvalue().strip()
+                self.assertTrue("ERROR: Missing required output file" in output)
+                self.assertEqual(wr.curr_exec['task_info']['check_outputs']['status'], 1)
+            outfiles['optional'] = 'true'
+            wr.inputwcl['filespecs']['red_immask_test'] = outfiles
+            res = wr.check_outputs(ekey, 0)
+            self.assertEqual(wr.curr_exec['task_info']['check_outputs']['status'], 0)
+            expected = {'filespecs.polygons': ['mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
+                                                           'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol',
+                                                           'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
+                                                           'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
+                                                           'mangle/g/TEST_DATA_r15p03_g_maglims.pol',
+                                                           'mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol'],
+                                    'list.out.red_immask_test': []}
+            for key, val in expected.items():
+                self.assertTrue(key in res)
+                for item in val:
+                    self.assertTrue(item in res[key])
+        finally:
+            try:
+                os.unlink(listfile)
+            except:
+                pass
+            for dr in touch_dirs:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
+
+    def test_save_outputs_by_section(self):
+        listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        try:
+            os.unlink(listfile)
+        except:
+            pass
+        touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g']
+        touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
+                      'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_maglims.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol']
+        for fl in touchfiles:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        for dr in touch_dirs:
+            try:
+                shutil.rmtree(dr)
+            except:
+                pass
+        for dr in touch_dirs:
+            os.makedirs(dr)
+        for fl in touchfiles:
+            open(fl, 'w').write("\n")
+        try:
+            os.makedirs('list/mangle')
+        except:
+            pass
+        f = open(listfile, 'w')
+        f.write("""out/m/first.file,1.1
+out/m/second.file,2.2
+out/m/third.file,3.3
+""")
+        f.close()
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            wr.outputwcl['wrapper']['start_time'] = time.time()
+            execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+            ekey = list(execs.keys())[0]
+            iw_exec = list(execs.values())[0]
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            wr.create_output_dirs(iw_exec)
+            outfiles = OrderedDict()
+            outfiles['dirpath'] = 'out/m'
+            outfiles['fullname'] = "out/m/first.file,out/m/second.file,out/m/third.file"
+            outfiles['sectname'] = 'red_immask_test'
+            outfiles['optional'] = 'true'
+            wr.inputwcl['filespecs']['red_immask_test'] = outfiles
+
+            outputs = {'filespecs.polygons': ['mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_maglims.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol'],
+                       'list.out.red_immask_test': []}
+            wr.save_outputs_by_section(ekey, outputs)
+
+            self.assertTrue('filespecs.polygons' in wr.outputwcl[intgdefs.OW_OUTPUTS_BY_SECT])
+            self.assertFalse('list.out.red_immask_test' in wr.outputwcl[intgdefs.OW_OUTPUTS_BY_SECT])
+            for item in outputs['filespecs.polygons']:
+                self.assertTrue(item in wr.outputwcl[intgdefs.OW_OUTPUTS_BY_SECT]['filespecs.polygons'][ekey])
+        finally:
+            try:
+                os.unlink(listfile)
+            except:
+                pass
+            for dr in touch_dirs:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
 
 
 if __name__ == '__main__':
