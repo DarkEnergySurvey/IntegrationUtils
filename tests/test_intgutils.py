@@ -1680,6 +1680,81 @@ out/m/third.file,3.3
             except:
                 pass
 
+    def test_save_provenance(self):
+        listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+
+        touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g', 'out']
+        touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
+                      'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_maglims.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol',
+                      'list/mangle/DES2157-5248_r15p03_g_mangle-out.list']
+        for fl in touchfiles:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        for dr in touch_dirs:
+            try:
+                shutil.rmtree(dr)
+            except:
+                pass
+        for dr in touch_dirs:
+            os.makedirs(dr)
+        for fl in touchfiles:
+            open(fl, 'w').write("\n")
+        try:
+            os.makedirs('list/mangle')
+        except:
+            pass
+        f = open(listfile, 'w')
+        f.write("""out/m/first.file,1.1
+out/m/second.file,2.2
+out/m/third.file,3.3
+""")
+        f.close()
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            wr.outputwcl['wrapper']['start_time'] = time.time()
+            execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+            ekey = list(execs.keys())[0]
+            iw_exec = list(execs.values())[0]
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            inputs = wr.check_inputs(ekey)
+            wr.create_output_dirs(iw_exec)
+            outfiles = OrderedDict()
+            outfiles['dirpath'] = 'out/m'
+            outfiles['fullname'] = "out/m/first.file,out/m/second.file,out/m/third.file"
+            outfiles['sectname'] = 'red_immask_test'
+            outfiles['optional'] = 'true'
+            wr.inputwcl['filespecs']['red_immask_test'] = outfiles
+
+            outputs = {'filespecs.polygons': ['mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_maglims.pol',
+                                              'mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol'],
+                       'list.out.red_immask_test': []}
+            wr.save_outputs_by_section(ekey, outputs)
+
+            wr.save_provenance(ekwy, iw_exec, inputs, outputs, ow_exec['status'])
+        finally:
+            try:
+                os.unlink(listfile)
+            except:
+                pass
+            for dr in touch_dirs:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
 
 if __name__ == '__main__':
     unittest.main()
