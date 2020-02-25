@@ -1744,7 +1744,8 @@ out/m/third.file,3.3
                        'list.out.red_immask_test': []}
             wr.save_outputs_by_section(ekey, outputs)
 
-            wr.save_provenance(ekwy, iw_exec, inputs, outputs, ow_exec['status'])
+            prov = wr.save_provenance(ekey, iw_exec, inputs, outputs, 0)
+
         finally:
             try:
                 os.unlink(listfile)
