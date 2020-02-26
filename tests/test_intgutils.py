@@ -21,7 +21,7 @@ import intgutils.wcl as wcl
 import intgutils.queryutils as iqu
 import intgutils.basic_wrapper as bwr
 import genwrap as gwr
-import intgutils
+from intgutils import *
 
 import despydmdb.desdmdbi as dmdbi
 from MockDBI import MockConnection
