@@ -993,6 +993,19 @@ class TestBasicWrapper(unittest.TestCase):
             self.assertTrue('does not exist' in output)
         self.assertEqual(wr.determine_status(), 1)
 
+        wr.outputwcl = {}
+        self.assertEqual(1, wr.determine_status())
+
+        wr.outputwcl = {'exec_1': {}}
+        self.assertEqual(1, wr.determine_status())
+
+        wr.outputwcl['exec_1'] = {'task_info': {'task1': {}}}
+        self.assertEqual(1, wr.determine_status())
+
+        wr.outputwcl['exec_1']['task_info'] = {'task1': {'status':3}}
+        self.assertEqual(3, wr.determine_status())
+
+
     def test_start_exec_task(self):
         wr = bwr.BasicWrapper(self.wcl_file)
         wr.outputwcl['wrapper']['start_time'] = time.time()
@@ -1505,14 +1518,12 @@ out/m/third.file,3.3
             try:
                 os.unlink(fl)
             except:
-                print("ERR " + fl)
-                #pass
+                pass
         for dr in touch_dirs:
             try:
                 shutil.rmtree(dr)
             except:
-                print("ERR2 " + dr)
-                #pass
+                pass
         for dr in touch_dirs:
             os.makedirs(dr)
         for fl in touchfiles:
@@ -1783,6 +1794,9 @@ mangle/g/TEST_DATA_r15p03_g_maglims.pol[0]
 
             prov = wr.save_provenance(ekey, iw_exec, inputs, outputs, 0)
 
+            self.assertTrue('used' in prov)
+            self.assertTrue('was_derived_from' in prov)
+            self.assertEqual(0, wr.curr_exec['task_info']['save_provenance']['status'])
         finally:
             for fl in touchfiles:
                 try:
@@ -1801,5 +1815,162 @@ mangle/g/TEST_DATA_r15p03_g_maglims.pol[0]
                 except:
                     pass
 
+    def test_save_provenance_errors(self):
+        listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        inlist = 'list/mangle/DES2157-5248_r15p03_g_mangle-sci.list'
+        touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g', 'out']
+        touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
+                      'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_maglims.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol',
+                      listfile, inlist]
+        for fl in touchfiles:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        for dr in touch_dirs:
+            try:
+                shutil.rmtree(dr)
+            except:
+                pass
+        for dr in touch_dirs:
+            os.makedirs(dr)
+        for fl in touchfiles:
+            open(fl, 'w').write("\n")
+        try:
+            os.makedirs('list/mangle')
+        except:
+            pass
+        open(listfile, 'w').write("""out/m/first.file,1.1
+out/m/second.file,2.2
+out/m/third.file,3.3
+""")
+        open(inlist, 'w').write("""mangle/g/TEST_DATA_r15p03_g_molys_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_maglims.pol[0]
+""")
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            wr.inputwcl['exec_1']['was_generated_by'] = 'list.out.red_immask_test'
+            wr.outputwcl['wrapper']['start_time'] = time.time()
+            execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
+            ekey = list(execs.keys())[0]
+            iw_exec = list(execs.values())[0]
+            ow_exec = {'task_info': {}}
+            wr.outputwcl[ekey] = ow_exec
+            wr.curr_exec = ow_exec
+            inputs = wr.check_inputs(ekey)
+            wr.create_output_dirs(iw_exec)
+            outfiles = OrderedDict()
+            outfiles['dirpath'] = 'out/m'
+            outfiles['fullname'] = "out/m/first.file,out/m/second.file,out/m/third.file"
+            outfiles['sectname'] = 'red_immask_test'
+            outfiles['optional'] = 'true'
+            wr.inputwcl['filespecs']['red_immask_test'] = outfiles
+
+            outputs = {'list.out.red_immask_test': []}
+            wr.save_outputs_by_section(ekey, outputs)
+
+            prov = wr.save_provenance(ekey, iw_exec, inputs, outputs, 0)
+
+            self.assertTrue('used' in prov)
+            self.assertFalse('was_derived_from' in prov)
+            self.assertEqual(1, wr.curr_exec['task_info']['save_provenance']['status'])
+
+            wr.inputwcl['exec_1']['was_generated_by'] = 'filespecs.polygons,list.out.red_immask_test'
+            wr.inputwcl['exec_1']['used'] = 'filespecs.poltiles,filespecs.poltolys'
+            self.assertTrue('used' in prov)
+            self.assertFalse('was_derived_from' in prov)
+            self.assertEqual(1, wr.curr_exec['task_info']['save_provenance']['status'])
+
+
+        finally:
+            for fl in touchfiles:
+                try:
+                    os.unlink(fl)
+                except:
+                    pass
+            for dr in touch_dirs:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
+
+            for dr in touch_dirs:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
+
+    def test_run_wrapper(self):
+        listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        inlist = 'list/mangle/DES2157-5248_r15p03_g_mangle-sci.list'
+        touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g', 'out', 'out/m']
+        touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
+                      'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_maglims.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol',
+                      listfile, inlist]
+        for fl in touchfiles:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        for dr in touch_dirs:
+            try:
+                shutil.rmtree(dr)
+            except:
+                pass
+        for dr in touch_dirs:
+            os.makedirs(dr)
+        for fl in touchfiles:
+            open(fl, 'w').write("\n")
+        try:
+            os.makedirs('list/mangle')
+        except:
+            pass
+        open(listfile, 'w').write("""out/m/first.file,1.1
+out/m/second.file,2.2
+out/m/third.file,3.3
+""")
+        open(inlist, 'w').write("""mangle/g/TEST_DATA_r15p03_g_molys_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_maglims.pol[0]
+""")
+        try:
+            wr = bwr.BasicWrapper(self.wcl_file)
+            self.assertFalse('end_time' in wr.outputwcl['wrapper'])
+            for fl in ['out/m/first.file', 'out/m/second.file', 'out/m/third.file']:
+                open(fl, 'w').write("\n")
+
+            wr.run_wrapper()
+            self.assertTrue('end_time' in wr.outputwcl['wrapper'])
+            self.assertTrue(wr.outputwcl['wrapper']['end_time'] > 0.0)
+        finally:
+            for fl in touchfiles:
+                try:
+                    os.unlink(fl)
+                except:
+                    pass
+            for dr in touch_dirs:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
+
+            for dr in touch_dirs:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
 if __name__ == '__main__':
     unittest.main()
