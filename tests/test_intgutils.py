@@ -20,6 +20,7 @@ import intgutils.intgdefs as intgdefs
 import intgutils.wcl as wcl
 import intgutils.queryutils as iqu
 import intgutils.basic_wrapper as bwr
+import genwrap as gwr
 
 import despydmdb.desdmdbi as dmdbi
 from MockDBI import MockConnection
@@ -1972,5 +1973,69 @@ mangle/g/TEST_DATA_r15p03_g_maglims.pol[0]
                     shutil.rmtree(dr)
                 except:
                     pass
+
+class TestGenWrap(unittest.TestCase):
+    def test_genwrap(self):
+        out_wcl = 'outputwcl/mangle/DES2157-5248_r15p03_g_mangle_output.wcl'
+        listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        inlist = 'list/mangle/DES2157-5248_r15p03_g_mangle-sci.list'
+        touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g', 'out', 'out/m']
+        touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
+                      'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_maglims.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
+                      'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol',
+                      listfile, inlist]
+        for fl in touchfiles + [out_wcl, listfile, inlist]:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        for dr in touch_dirs + ['outputwcl', 'outputwcl/mangle']:
+            try:
+                shutil.rmtree(dr)
+            except:
+                pass
+        for dr in touch_dirs:
+            os.makedirs(dr)
+        for fl in touchfiles:
+            open(fl, 'w').write("\n")
+        try:
+            os.makedirs('list/mangle')
+        except:
+            pass
+        open(listfile, 'w').write("""out/m/first.file,1.1
+out/m/second.file,2.2
+out/m/third.file,3.3
+""")
+        open(inlist, 'w').write("""mangle/g/TEST_DATA_r15p03_g_molys_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_maglims.pol[0]
+""")
+        try:
+            wcl_file = os.path.join(ROOT, 'wcl/wrappertest.wcl')
+            temp = copy.deepcopy(sys.argv)
+            sys.argv = ['genwrap.py', wcl_file]
+            for fl in ['out/m/first.file', 'out/m/second.file', 'out/m/third.file']:
+                open(fl, 'w').write("\n")
+            self.assertFalse(os.path.exists(out_wcl))
+            self.assertRaises(SystemExit, gwr.main)
+            self.assertTrue(os.path.exists(out_wcl))
+
+        finally:
+            for fl in touchfiles + [out_wcl, listfile, inlist]:
+                try:
+                    os.unlink(fl)
+                except:
+                    pass
+            for dr in touch_dirs + [ 'outputwcl', 'outputwcl/mangle']:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
+
 if __name__ == '__main__':
     unittest.main()
