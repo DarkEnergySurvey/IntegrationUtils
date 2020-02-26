@@ -1082,6 +1082,8 @@ class TestBasicWrapper(unittest.TestCase):
             except:
                 pass
         try:
+            os.makedirs('list/mangle')
+            open('list/mangle/DES2157-5248_r15p03_g_mangle-sci.list', 'w').write('mangle_tiles/Y3A1v1_tolys_10s.122497.pol\n')
             wr = bwr.BasicWrapper(self.wcl_file)
             wr.outputwcl['wrapper']['start_time'] = time.time()
             execs = igm.get_exec_sections(wr.inputwcl, intgdefs.IW_EXEC_PREFIX)
@@ -1095,7 +1097,10 @@ class TestBasicWrapper(unittest.TestCase):
                 output = out.getvalue().strip()
                 self.assertTrue('does not exist' in output)
             for dr in touch_dirs:
-                os.makedirs(dr)
+                try:
+                    os.makedirs(dr)
+                except:
+                    pass
             for fl in touchfiles:
                 open(fl, 'w').write("\n")
             wr.check_inputs(ekey)
@@ -1328,11 +1333,14 @@ list/m/third.file,3.3
 
     def test_run_exec(self):
         touch_dir = 'list/mangle'
-        touchfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
-        try:
-            os.unlink(touchfile)
-        except:
-            pass
+        listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        inlist = 'list/mangle/DES2157-5248_r15p03_g_mangle-sci.list'
+        touchfiles = [listfile, inlist]
+        for fl in touchfiles:
+            try:
+                os.unlink(fl)
+            except:
+                pass
         try:
             shutil.rmtree('list')
         except:
@@ -1353,9 +1361,13 @@ list/m/third.file,3.3
             wr.curr_exec = ow_exec
             os.makedirs(touch_dir)
 
-            open(touchfile, 'w').write("""list/m/first.file,1.1
+            open(listfile, 'w').write("""list/m/first.file,1.1
 list/m/second.file,2.2
 list/m/third.file,3.3
+""")
+            open(inlist, 'w').write("""mangle/g/TEST_DATA_r15p03_g_molys_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_maglims.pol[0]
 """)
             wr.check_command_line(ekey, iw_exec)
             wr.save_exec_version(iw_exec)
@@ -1371,10 +1383,11 @@ list/m/third.file,3.3
                 self.assertRaises(OSError, wr.run_exec)
 
         finally:
-            try:
-                os.unlink(touchfile)
-            except:
-                pass
+            for fl in touchfiles:
+                try:
+                    os.unlink(fl)
+                except:
+                    pass
             try:
                 shutil.rmtree('list')
             except:
@@ -1401,6 +1414,7 @@ list/m/third.file,3.3
 
     def test_check_outputs_missing(self):
         listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        inlist = 'list/mangle/DES2157-5248_r15p03_g_mangle-sci.list'
         try:
             os.unlink(listfile)
         except:
@@ -1432,6 +1446,9 @@ out/m/second.file,2.2
 out/m/third.file,3.3
 """)
         f.close()
+        f = open(inlist, 'w')
+        f.write('mangle_tiles/Y3A1v1_tolys_10s.122497.pol\n')
+        f.close()
         try:
             wr = bwr.BasicWrapper(self.wcl_file)
             wr.outputwcl['wrapper']['start_time'] = time.time()
@@ -1459,17 +1476,23 @@ out/m/third.file,3.3
             except:
                 pass
             try:
+                os.unlink(inlist)
+            except:
+                pass
+            try:
                 shutil.rmtree('list')
             except:
                 pass
 
     def test_check_outputs_optional(self):
         listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
+        inlist = 'list/mangle/DES2157-5248_r15p03_g_mangle-sci.list'
+
         try:
             os.unlink(listfile)
         except:
             pass
-        touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g']
+        touch_dirs = ['mangle_tiles', 'list', 'list/mangle', 'mangle', 'mangle/g']
         touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
                       'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
                       'mangle/g/TEST_DATA_r15p03_g_molys_weight.pol',
@@ -1478,16 +1501,18 @@ out/m/third.file,3.3
                       'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
                       'mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
                       'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol']
-        for fl in touchfiles:
+        for fl in touchfiles + [listfile, inlist]:
             try:
                 os.unlink(fl)
             except:
-                pass
+                print("ERR " + fl)
+                #pass
         for dr in touch_dirs:
             try:
                 shutil.rmtree(dr)
             except:
-                pass
+                print("ERR2 " + dr)
+                #pass
         for dr in touch_dirs:
             os.makedirs(dr)
         for fl in touchfiles:
@@ -1502,6 +1527,11 @@ out/m/second.file,2.2
 out/m/third.file,3.3
 """)
         f.close()
+        open(inlist, 'w').write("""mangle/g/TEST_DATA_r15p03_g_molys_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_maglims.pol[0]
+""")
+
         try:
             wr = bwr.BasicWrapper(self.wcl_file)
             wr.outputwcl['wrapper']['start_time'] = time.time()
@@ -1544,6 +1574,11 @@ out/m/third.file,3.3
                 os.unlink(listfile)
             except:
                 pass
+            try:
+                os.unlink(inlist)
+            except:
+                pass
+
             for dr in touch_dirs:
                 try:
                     shutil.rmtree(dr)
@@ -1682,7 +1717,7 @@ out/m/third.file,3.3
 
     def test_save_provenance(self):
         listfile = 'list/mangle/DES2157-5248_r15p03_g_mangle-out.list'
-
+        inlist = 'list/mangle/DES2157-5248_r15p03_g_mangle-sci.list'
         touch_dirs = ['mangle_tiles', 'list','list/mangle', 'mangle', 'mangle/g', 'out']
         touchfiles = ['mangle_tiles/Y3A1v1_tolys_10s.122497.pol',
                       'mangle_tiles/Y3A1v1_tiles_10s.122497.pol',
@@ -1692,7 +1727,7 @@ out/m/third.file,3.3
                       'mangle/g/TEST_DATA_r15p03_g_starmask.pol',
                       'mangle/g/TEST_DATA_r15p03_g_ccdmolys_weight.pol',
                       'mangle/g/TEST_DATA_r15p03_g_bleedmask.pol',
-                      'list/mangle/DES2157-5248_r15p03_g_mangle-out.list']
+                      listfile, inlist]
         for fl in touchfiles:
             try:
                 os.unlink(fl)
@@ -1711,12 +1746,14 @@ out/m/third.file,3.3
             os.makedirs('list/mangle')
         except:
             pass
-        f = open(listfile, 'w')
-        f.write("""out/m/first.file,1.1
+        open(listfile, 'w').write("""out/m/first.file,1.1
 out/m/second.file,2.2
 out/m/third.file,3.3
 """)
-        f.close()
+        open(inlist, 'w').write("""mangle/g/TEST_DATA_r15p03_g_molys_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_ccdgons_weight.pol[0]
+mangle/g/TEST_DATA_r15p03_g_maglims.pol[0]
+""")
         try:
             wr = bwr.BasicWrapper(self.wcl_file)
             wr.outputwcl['wrapper']['start_time'] = time.time()
@@ -1747,10 +1784,17 @@ out/m/third.file,3.3
             prov = wr.save_provenance(ekey, iw_exec, inputs, outputs, 0)
 
         finally:
-            try:
-                os.unlink(listfile)
-            except:
-                pass
+            for fl in touchfiles:
+                try:
+                    os.unlink(fl)
+                except:
+                    pass
+            for dr in touch_dirs:
+                try:
+                    shutil.rmtree(dr)
+                except:
+                    pass
+
             for dr in touch_dirs:
                 try:
                     shutil.rmtree(dr)
